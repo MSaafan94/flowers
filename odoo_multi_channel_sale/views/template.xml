@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2015-Present Webkul Software Pvt. Ltd. (<https://webkul.com/>) -->
+<!-- See LICENSE file for full copyright and licensing details. -->
+<!-- "License URL : <https://store.webkul.com/license.html/>" -->
+<odoo>
+<!--	<template id="assets_backend" inherit_id="web.assets_backend">-->
+<!--&lt;!&ndash;		<xpath expr="//link[last()]" position="after">&ndash;&gt;-->
+<!--&lt;!&ndash;			<link rel="stylesheet" type="text/css" href="/odoo_multi_channel_sale/static/src/css/dashboard.css"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		</xpath>&ndash;&gt;-->
+<!--&lt;!&ndash;		<xpath expr="//script[last()]" position="after">&ndash;&gt;-->
+<!--&lt;!&ndash;			<script type="text/javascript" src="/odoo_multi_channel_sale/static/src/js/dashboard.js"/>&ndash;&gt;-->
+<!--&lt;!&ndash;			<script type="text/javascript" src="/odoo_multi_channel_sale/static/src/js/odoo_multi_channel_sale.js"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		</xpath>&ndash;&gt;-->
+<!--	</template>-->
+</odoo>
