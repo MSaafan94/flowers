@@ -29,7 +29,7 @@ class MultiChannelSale(models.Model):
 			ctx.update({
 				'location': self.location_id.id
 			})
-		qty = obj_pro.with_context(ctx)._product_available(None, False)
+		qty = obj_pro.with_context(ctx)
 		quantity = qty[obj_pro.id]['qty_available'] if self.channel_stock_action =="qoh" else qty[obj_pro.id]['virtual_available']
 		quantity = quantity.split('.')[0] if type(quantity) == str else quantity.as_integer_ratio()[0] if type(quantity) == float else quantity
 		return quantity
