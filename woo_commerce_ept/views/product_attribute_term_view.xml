@@ -32,7 +32,7 @@
         <field name="name">WooCommerce Attribute</field>
         <field name="model">woo.product.attribute.term.ept</field>
         <field name="arch" type="xml">
-            <tree create="false">
+            <tree create="false" sample="1">
                 <field name="name"/>
                 <field name="attribute_id"/>
                 <field name="woo_attribute_term_id" string="WooCommerce Attribute Term"/>
@@ -66,6 +66,6 @@
         <field name="view_mode">tree,form,search</field>
     </record>
 
-    <menuitem action="product_attribute_term_action_ept" id="product_attribute_term_menu_ept" name="Attribute Terms"
-              parent="woo_commerce_ept.woo_catalog" sequence="4"/>
+    <menuitem action="product_attribute_term_action_ept" id="product_attribute_term_menu_ept" name="Product Attribute Terms"
+              parent="woo_commerce_ept.menu_item_parent_woo_products_ept" sequence="5"/>
 </odoo>

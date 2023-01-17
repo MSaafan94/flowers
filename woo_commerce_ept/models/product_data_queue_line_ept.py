@@ -15,7 +15,7 @@ class WooProductDataQueueLineEpt(models.Model):
 
     woo_instance_id = fields.Many2one('woo.instance.ept', string='Instance')
     state = fields.Selection([('draft', 'Draft'), ('failed', 'Failed'),
-                              ("cancelled", "Cancelled"), ('done', 'Done')],
+                              ("cancel", "Cancelled"), ('done', 'Done')],
                              default='draft')
     synced_date = fields.Datetime(readonly=True)
     last_process_date = fields.Datetime(readonly=True)
@@ -30,13 +30,13 @@ class WooProductDataQueueLineEpt(models.Model):
                                           help="It used to identify that product image imported explicitly")
 
     def sync_woo_product_data(self):
-        """This method used to process synced Woo Commerce data.This method called from cron
-            and manually from synced Woo Commerce data.
-            @author: Dipak Gogiya @Emipro Technologies Pvt.Ltd
-            Change by Nilesh Parmar 12/02/2020 for add the functionality to manage crash queue.
-            if queue is crashed 3 times than create a schedule activity.
-            Migration done by Haresh Mori @ Emipro on date 14 August 2020.
-            Task_Id: 165892
+        """
+        This method used to process synced Woo Commerce data.This method called from cron
+        and manually from synced Woo Commerce data.
+        @author: Dipak Gogiya @Emipro Technologies Pvt.Ltd
+        Change by Nilesh Parmar 12/02/2020 for add the functionality to manage crash queue.
+        if queue is crashed 3 times than create a schedule activity.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         product_data_queue_ids = []
         ir_model_obj = self.env['ir.model']
@@ -87,6 +87,7 @@ class WooProductDataQueueLineEpt(models.Model):
         This method is used to process the queue lines from Webhook, manually from form view or after searching from
         auto process cron.
         @author: Maulik Barad on Date 27-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_template_obj = self.env['woo.product.template.ept']
         common_log_book_obj = self.env['common.log.book.ept']
@@ -108,16 +109,16 @@ class WooProductDataQueueLineEpt(models.Model):
         self.env.cr.execute(
             """update woo_product_data_queue_ept set is_process_queue = False where is_process_queue = True""")
         self._cr.commit()
-
         woo_product_template_obj.sync_products(self, woo_instance, common_log_book_id, is_skip_products)
         if common_log_book_id and not common_log_book_id.log_lines:
             common_log_book_id.unlink()
         return True
 
     def woo_image_import(self):
-        """ This method is used to import the product images explicitly.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 30 November 2020 .
-            Task_id: 167533
+        """
+        This method is used to import the product images explicitly.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 30 November 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_template_obj = self.env['woo.product.template.ept']
         product_dict = {}
@@ -130,12 +131,11 @@ class WooProductDataQueueLineEpt(models.Model):
                                                    limit=1)
             if not woo_template:
                 continue
-            woo_instance = woo_template.woo_instance_id
             product_data = json.loads(browsable_queue_line.woo_synced_data)
             woo_products = woo_template.woo_product_ids
             if woo_template.woo_product_type in ['simple', 'bundle']:
                 woo_template_obj.update_product_images(product_data["images"], {}, woo_template, woo_products[0],
-                                                       woo_instance, False)
+                                                       False)
             if woo_template.woo_product_type == 'variable':
                 for variant_response in product_data.get('variations'):
                     woo_product = woo_products.filtered(lambda product: product.variant_id == str(
@@ -146,17 +146,18 @@ class WooProductDataQueueLineEpt(models.Model):
                         product_dict.update({'product_tmpl_id': woo_template.product_tmpl_id, 'is_image': True})
 
                     woo_template_obj.update_product_images(product_data["images"], variant_response["image"],
-                                                           woo_template, woo_product,
-                                                           woo_instance, template_images_updated, product_dict)
+                                                           woo_template, woo_product, template_images_updated,
+                                                           product_dict)
                     template_images_updated = True
             browsable_queue_line.write({'image_import_state': 'done'})
         return True
 
     def query_find_queue_line_for_import_image(self):
-        """ This method is used to search product queue lines which are remaining to import an image for the product.
-            @return: product_queue_list
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 1 December 2020 .
-            Task_id: 167533
+        """
+        This method is used to search product queue lines which are remaining to import an image for the product.
+        @return: product_queue_list
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 1 December 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         query = """select id from woo_product_data_queue_line_ept
                     where state='done' and image_import_state = 'pending'

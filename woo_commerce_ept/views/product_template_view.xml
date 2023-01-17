@@ -30,7 +30,13 @@
         <field name="name">WooCommerce Product Template Tree View</field>
         <field name="model">woo.product.template.ept</field>
         <field name="arch" type="xml">
-            <tree create="false" decoration-bf="exported_in_woo == False">
+            <tree create="false" decoration-bf="exported_in_woo == False" sample="1">
+                <header>
+                    <button name="%(woo_commerce_ept.action_wizard_woo_update_selected_products)d"
+                            string="Update Product" type="action"/>
+                    <button name="%(woo_commerce_ept.action_wizard_woo_update_product_stock)d"
+                            string="Export Stock" type="action"/>
+                </header>
                 <field name="name"/>
                 <field name="woo_instance_id"/>
                 <field name="product_tmpl_id"/>
@@ -180,11 +186,11 @@
               sequence="3"/>
 
     <menuitem id="menu_item_woo_products_template_ept" name="Products"
-              parent="woo_commerce_ept.menu_item_parent_woo_products_ept" sequence="3"
+              parent="woo_commerce_ept.menu_item_parent_woo_products_ept" sequence="1"
               action="action_woo_product_template_ept"/>
 
-    <menuitem id="woo_catalog" parent="woo_commerce_ept.menu_item_parent_woo_products_ept" sequence="5"
-              name="Catalog"/>
+<!--    <menuitem id="woo_catalog" parent="woo_commerce_ept.menu_item_parent_woo_products_ept" sequence="5"-->
+<!--              name="Catalog"/>-->
 
     <record id="action_woo_product_template_instance_ept" model="ir.actions.act_window">
         <field name="name">WooCommerce Products</field>

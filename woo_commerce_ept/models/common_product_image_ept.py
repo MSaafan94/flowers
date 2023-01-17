@@ -11,6 +11,7 @@ class ProductImageEpt(models.Model):
     """
     Inherited for adding images in related Woo products, when images will be added Odoo products.
     @author: Maulik Barad on Date 11-Dec-2019.
+    Migrated by Maulik Barad on Date 07-Oct-2021.
     """
     _inherit = "common.product.image.ept"
 
@@ -19,6 +20,7 @@ class ProductImageEpt(models.Model):
         """
         Inherited for adding images in Woo products.
         @author: Maulik Barad on Date 11-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         result = super(ProductImageEpt, self).create(vals)
         if self.user_has_groups('woo_commerce_ept.group_woo_ept'):
@@ -26,26 +28,26 @@ class ProductImageEpt(models.Model):
             woo_product_template_obj = self.env["woo.product.template.ept"]
             woo_product_image_obj = self.env["woo.product.image.ept"]
             woo_product_image_vals = {"odoo_image_id": result.id}
+            mimetype = guess_mimetype(base64.b64decode(result.image))
 
             if vals.get("product_id", False):
                 woo_variants = woo_product_product_obj.search_read([("product_id", "=", vals.get("product_id"))],
                                                                    ["id", "woo_template_id"])
-                mimetype = guess_mimetype(base64.b64decode(result.image))
                 sequence = 1
                 for woo_variant in woo_variants:
                     variant_gallery_images = woo_product_product_obj.browse(woo_variant["id"]).woo_image_ids
                     for variant_gallery_image in variant_gallery_images:
                         variant_gallery_image.write({"sequence": sequence})
                         sequence = sequence + 1
-                    woo_product_image_vals.update(
-                        {"woo_variant_id": woo_variant["id"], "woo_template_id": woo_variant["woo_template_id"][0],
-                         "image_mime_type": mimetype, "sequence": 0})
+                    woo_product_image_vals.update({"woo_variant_id": woo_variant["id"],
+                                                   "woo_template_id": woo_variant["woo_template_id"][0],
+                                                   "image_mime_type": mimetype, "sequence": 0})
                     woo_product_image_obj.create(woo_product_image_vals)
 
             elif vals.get("template_id", False):
                 woo_templates = woo_product_template_obj.search_read(
                     [("product_tmpl_id", "=", vals.get("template_id"))], ["id"])
-                mimetype = guess_mimetype(base64.b64decode(result.image))
+
                 for woo_template in woo_templates:
                     existing_gallery_images = woo_product_template_obj.browse(
                         woo_template["id"]).woo_image_ids.filtered(lambda x: not x.woo_variant_id)

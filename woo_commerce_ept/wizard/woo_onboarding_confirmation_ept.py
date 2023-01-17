@@ -7,10 +7,10 @@ class WooOnboardingConfirmationEpt(models.TransientModel):
 
     def yes(self):
         """
-           Usage: Save the Cron Changes by Instance Wise
-           @Task:  166918 - Odoo v14 : Dashboard analysis
-           @author: Dipak Gogiya
-           :return: True
+       Usage: Save the Cron Changes by Instance Wise
+       @Task:  166918 - Odoo v14 : Dashboard analysis
+       @author: Dipak Gogiya
+       :return: True
         """
         instance_obj = self.env['woo.instance.ept']
         instance_id = self._context.get('woo_instance_id', False)
@@ -28,8 +28,7 @@ class WooOnboardingConfirmationEpt(models.TransientModel):
             return {
                 'effect': {
                     'type': 'rainbow_man',
-                    'message': _(
-                        "Congratulations, You have done All Configurations of Instance : {}".format(instance.name)),
+                    'message': _("Congratulations, You have done All Configurations of Instance : %s" % instance.name),
                 }
             }
         return {
@@ -39,10 +38,10 @@ class WooOnboardingConfirmationEpt(models.TransientModel):
 
     def no(self):
         """
-       Usage: Discard the changes and reload the page.
-       @Task:  166918 - Odoo v14 : Dashboard analysis
-       @author: Dipak Gogiya
-       :return: action of reload the page
+        Usage: Discard the changes and reload the page.
+        @Task:  166918 - Odoo v14 : Dashboard analysis
+        @author: Dipak Gogiya
+        :return: action of reload the page
         """
         return {
             'type': 'ir.actions.client',

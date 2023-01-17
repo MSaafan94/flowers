@@ -181,7 +181,8 @@
                         <div class="row mt16 o_settings_container o_settings_container_woo_config">
                             <div class="col-12 o_setting_box o_setting_box o_setting_box_woo_config">
                                 <div class="o_setting_left_pane">
-                                    <field name="woo_set_sales_description_in_product" widget="boolean_toggle"/>
+                                    <field name="woo_set_sales_description_in_product" widget="boolean_toggle"
+                                           style="padding-left:25px;"/>
                                 </div>
                                 <div class="o_setting_right_pane">
                                     <label for="woo_set_sales_description_in_product"/>
@@ -300,7 +301,8 @@
 
                         <div class="col-12 col-lg-6 o_setting_box">
                             <div class="o_setting_left_pane">
-                                <field name="create_woo_product_webhook" widget="boolean_toggle"/>
+                                <field name="create_woo_product_webhook" widget="boolean_toggle"
+                                       style="padding-left:25px;"/>
                             </div>
                             <div class="o_setting_right_pane">
                                 <label for="create_woo_product_webhook" string="Manage Products via Webhooks"/>
@@ -309,7 +311,8 @@
 
                         <div class="col-12 col-lg-6 o_setting_box">
                             <div class="o_setting_left_pane">
-                                <field name="create_woo_customer_webhook" widget="boolean_toggle"/>
+                                <field name="create_woo_customer_webhook" widget="boolean_toggle"
+                                       style="padding-left:25px;"/>
                             </div>
                             <div class="o_setting_right_pane">
                                 <label for="create_woo_customer_webhook" string="Manage Customers via Webhooks"/>
@@ -318,7 +321,8 @@
 
                         <div class="col-12 col-lg-6 o_setting_box">
                             <div class="o_setting_left_pane">
-                                <field name="create_woo_order_webhook" widget="boolean_toggle"/>
+                                <field name="create_woo_order_webhook" widget="boolean_toggle"
+                                       style="padding-left:25px;"/>
                             </div>
                             <div class="o_setting_right_pane">
                                 <label for="create_woo_order_webhook" string="Manage Orders via Webhooks"/>
@@ -327,7 +331,8 @@
 
                         <div class="col-12 col-lg-6 o_setting_box">
                             <div class="o_setting_left_pane">
-                                <field name="create_woo_coupon_webhook" widget="boolean_toggle"/>
+                                <field name="create_woo_coupon_webhook" widget="boolean_toggle"
+                                       style="padding-left:25px;"/>
                             </div>
                             <div class="o_setting_right_pane">
                                 <label for="create_woo_coupon_webhook"/>
@@ -344,10 +349,12 @@
                             <div class="row mt10 o_settings_container o_settings_container_woo_config">
                                 <div class="col-12 col-lg-6 o_setting_box">
                                     <div class="o_setting_left_pane">
-                                        <field name="woo_sync_images_with_product" widget="boolean_toggle"/>
+                                        <field name="woo_sync_images_with_product" widget="boolean_toggle"
+                                               style="padding-left:25px;"/>
                                     </div>
                                     <div class="o_setting_right_pane">
-                                        <label for="woo_sync_images_with_product" string="WooCommerce Sync/Import Images?"/>
+                                        <label for="woo_sync_images_with_product"
+                                               string="WooCommerce Sync/Import Images?"/>
                                         <div class="text-muted">
                                             If checked, it will automatically import product image, while product import
                                             process else not.
@@ -357,10 +364,12 @@
 
                                 <div class="col-12 col-lg-6 o_setting_box">
                                     <div class="o_setting_left_pane">
-                                        <field name="woo_sync_price_with_product" widget="boolean_toggle"/>
+                                        <field name="woo_sync_price_with_product" widget="boolean_toggle"
+                                               style="padding-left:25px;"/>
                                     </div>
                                     <div class="o_setting_right_pane">
-                                        <label for="woo_sync_price_with_product" string="WooCommerce Sync/Import Product Price?"/>
+                                        <label for="woo_sync_price_with_product"
+                                               string="WooCommerce Sync/Import Product Price?"/>
                                         <div class="text-muted">
                                             If checked, it will set the product price in the pricelist configured under
                                             the given instance, while product import process else not.
@@ -369,7 +378,8 @@
                                 </div>
                                 <div class="col-12 col-lg-6 o_setting_box">
                                     <div class="o_setting_left_pane">
-                                        <field name="woo_auto_import_product" widget="boolean_toggle"/>
+                                        <field name="woo_auto_import_product" widget="boolean_toggle"
+                                               style="padding-left:25px;"/>
                                     </div>
                                     <div class="o_setting_right_pane">
                                         <label for="woo_auto_import_product"/>
@@ -451,7 +461,7 @@
                                         <div class="mt16">
                                             <field name="woo_import_order_status_ids" widget="many2many_tags"
                                                    options="{'no_create':True,'no_create_edit': True}"
-                                                   class="oe_inline" />
+                                                   class="oe_inline"/>
                                         </div>
                                     </div>
                                 </div>
@@ -472,9 +482,56 @@
                                 </div>
                             </div>
 
+                            <div class="col-xs-12 col-md-6 o_setting_box" groups="analytic.group_analytic_accounting">
+                                <div class="o_setting_right_pane">
+                                    <label for="woo_analytic_account_id" string="Analytic Account"/>
+                                    <div class="text-muted">
+                                        Set the Analytic account for WooCommerce orders.
+                                        <li>
+                                            Note : The configuration of the analytic account for this instance will be
+                                            applied to all sales orders created by the connector. With this
+                                            configuration, the Analytic Default Rule configured in Odoo will not apply
+                                            to WooCommerce orders invoices. If you wish to use Odoo Analytic Default
+                                            Rule,
+                                            you will not have to configure any analytic account here.
+                                        </li>
+                                    </div>
+                                    <div class="content-group">
+                                        <div class="mt16">
+                                            <field name="woo_analytic_account_id" class="o_light_label"
+                                                   options="{'no_create':True,'no_create_edit': True}"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xs-12 col-md-6 o_setting_box" groups="analytic.group_analytic_tags">
+                                <div class="o_setting_right_pane">
+                                    <label for="woo_analytic_tag_ids" string="Analytic Tags"/>
+                                    <div class="text-muted">
+                                        Set the Analytic tags for WooCommerce orders.
+                                        <li>
+                                            Note : The configuration of the analytic tags for this instance will be
+                                            applied to all sales orders created by the connector. With this
+                                            configuration, the Analytic Default Rule configured in Odoo will not apply
+                                            to WooCommerce orders invoices. If you wish to use Odoo Analytic Default
+                                            Rule,
+                                            you will not have to configure any analytic tags here.
+                                        </li>
+                                    </div>
+                                    <div class="content-group">
+                                        <div class="mt16">
+                                            <field name="woo_analytic_tag_ids" class="o_light_label"
+                                                   widget="many2many_tags"
+                                                   options="{'no_create':True,'no_create_edit': True}"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="col-12 col-lg-6 o_setting_box">
                                 <div class="o_setting_left_pane">
-                                    <field name="woo_custom_order_prefix" widget="boolean_toggle"/>
+                                    <field name="woo_custom_order_prefix" widget="boolean_toggle"
+                                           style="padding-left:25px;"/>
                                 </div>
                                 <div class="o_setting_right_pane">
                                     <label for="woo_custom_order_prefix" string="Use Odoo Default Sequence?"/>
@@ -547,7 +604,8 @@
                                     <div class="content-group">
                                         <div class="mt16">
                                             <field name="woo_import_order_after_date"
-                                                   class="oe_inline" attrs="{'required':[('woo_instance_id','!=',False)]}"/>
+                                                   class="oe_inline"
+                                                   attrs="{'required':[('woo_instance_id','!=',False)]}"/>
                                         </div>
                                     </div>
                                 </div>
@@ -685,6 +743,45 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label for="woo_last_completed_order_import_date"/>
+                                <div class="text-muted">
+                                    Set the last import complete order date.
+                                </div>
+                                <div class="content-group">
+                                    <div class="mt16">
+                                        <field name="woo_last_completed_order_import_date" class="oe_inline"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label for="woo_import_products_last_date"/>
+                                <div class="text-muted">
+                                    Set the last import products date.
+                                </div>
+                                <div class="content-group">
+                                    <div class="mt16">
+                                        <field name="woo_import_products_last_date" class="oe_inline"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label for="woo_last_cancel_order_import_date" string="Import Cancel Orders"/>
+                                <div class="text-muted">
+                                    Set the last import cancel order date.
+                                </div>
+                                <div class="content-group">
+                                    <div class="mt16">
+                                        <field name="woo_last_cancel_order_import_date" class="oe_inline"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div name="schedule_activity_header" attrs="{'invisible': [('woo_instance_id', '=', False)]}">
@@ -694,7 +791,8 @@
                     <div class="row mt16 o_settings_container" attrs="{'invisible': [('woo_instance_id', '=', False)]}">
                         <div class="col-12 col-lg-6 o_setting_box">
                             <div class="o_setting_left_pane">
-                                <field name="woo_is_create_schedule_activity" widget="boolean_toggle"/>
+                                <field name="woo_is_create_schedule_activity" widget="boolean_toggle"
+                                       style="padding-left:25px;"/>
                             </div>
                             <div class="o_setting_right_pane">
                                 <label for="woo_is_create_schedule_activity"/>

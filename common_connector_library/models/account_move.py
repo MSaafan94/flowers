@@ -1,16 +1,24 @@
 # -*- coding: utf-8 -*-
 # See LICENSE file for full copyright and licensing details.
-from odoo import models
+from odoo import models, api
+
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
+    @api.model
+    def _get_default_journal(self):
+        res = super(AccountMove, self)._get_default_journal()
+        if self._context.get('journal_ept'):
+            res = self._context.get('journal_ept')
+        return res
+
     def prepare_payment_dict(self, work_flow_process_record):
-        """
-        Added By Twinkalc 29 july 2020
-        This method will prepare payment dictionary.
-        :param work_flow_process_record: Sale Workflow object.
-        Migration done by twinkalc August 2020
+        """ This method use to prepare a vals dictionary for payment.
+            @param work_flow_process_record: Record of auto invoice workflow.
+            @return: Dictionary of payment vals
+            @author: Twinkalc.
+            Migration done by Haresh Mori on September 2021
         """
         return {
             'journal_id': work_flow_process_record.journal_id.id,

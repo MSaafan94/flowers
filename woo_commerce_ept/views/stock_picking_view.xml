@@ -9,8 +9,10 @@
         <field name="arch" type="xml">
             <field name="move_type" position="after">
                 <field name="is_woo_delivery_order" invisible="1"/>
-                <field name="updated_in_woo" attrs="{'invisible':[('is_woo_delivery_order','!=',True)]}" string = "Updated In WooCommerce"/>
-                <field name="canceled_in_woo" readonly="1" attrs="{'invisible':[('is_woo_delivery_order','!=',True)]}" string="Cancelled In WooCommerce"/>
+                <field name="updated_in_woo" readonly="1" attrs="{'invisible':[('is_woo_delivery_order','!=',True)]}"
+                       string="Updated In WooCommerce"/>
+                <field name="canceled_in_woo" readonly="1" attrs="{'invisible':[('is_woo_delivery_order','!=',True)]}"
+                       string="Cancelled In WooCommerce"/>
                 <field name="woo_instance_id" invisible="1"/>
             </field>
         </field>
@@ -21,7 +23,7 @@
         <field name="model">stock.picking</field>
         <field name="priority">100</field>
         <field name="arch" type="xml">
-            <tree create="false">
+            <tree create="false" sample="1">
                 <field name="picking_type_code" invisible="1"/>
                 <field name="name"/>
                 <field name="location_dest_id"/>
@@ -125,9 +127,7 @@
         <field name="view_id" ref="stock_picking_tree_ept"/>
     </record>
 
-    <menuitem id="woo_delivery" parent="woo_sales_menu" sequence="4" name="Transfers"/>
-
-    <menuitem id="menu_item_woo_delivery_order_ept" name="Delivery Order" parent="woo_delivery"
-              action="action_picking_view_ept" sequence="1"/>
+    <menuitem id="menu_item_woo_delivery_order_ept" name="Delivery Orders" parent="woo_sales_menu"
+              action="action_picking_view_ept" sequence="3"/>
 
 </odoo>

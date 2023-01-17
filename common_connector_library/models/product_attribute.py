@@ -2,6 +2,7 @@
 # See LICENSE file for full copyright and licensing details.
 from odoo import models
 
+
 class ProductAttribute(models.Model):
     _inherit = "product.attribute"
 
@@ -13,10 +14,11 @@ class ProductAttribute(models.Model):
         :param create_variant: when variant create
         :param auto_create: True or False
         :return: attributes
+        Migration done by Haresh Mori on September 2021
         """
         attributes = self.search([('name', '=ilike', attribute_string),
-                                  ('create_variant', '=', create_variant)])
+                                  ('create_variant', '=', create_variant)], limit=1)
         if not attributes and auto_create:
-            return self.create(({'name':attribute_string, 'create_variant':create_variant,
-                                 'display_type':attribute_type}))
+            return self.create(({'name': attribute_string, 'create_variant': create_variant,
+                                 'display_type': attribute_type}))
         return attributes

@@ -6,7 +6,7 @@
         <field name="model">res.partner</field>
         <field eval="100" name="priority"/>
         <field name="arch" type="xml">
-            <tree create="false">
+            <tree create="false" sample="1">
                 <field name="name"/>
                 <field name="phone"/>
                 <field name="email"/>
@@ -67,7 +67,7 @@
         </field>
     </record>
 
-    <menuitem id="woo_menu_item_customers" name="Customers" sequence="1" parent="woo_sales_menu"
+    <menuitem id="woo_menu_item_customers" name="Customers" sequence="6" parent="woo_sales_menu"
               action="action_woo_partner"/>
 
 </odoo>

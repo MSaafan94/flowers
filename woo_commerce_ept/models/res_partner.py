@@ -21,6 +21,7 @@ class ResPartner(models.Model):
         @param response: Response from the WooCommerce.
         @param common_log_id: Record of Logbook.
         @author: Maulik Barad on Date 31-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id("woo.instance.ept")
@@ -46,6 +47,7 @@ class ResPartner(models.Model):
         This method used to request for the customer page.
         @param : self, wc_api, common_log_id, page, woo_process_import_export_id
         @author: Maulik Barad on Date 30-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         queue_ids = []
 
@@ -66,8 +68,8 @@ class ResPartner(models.Model):
         This method used to call the request of the customer and prepare a customer response.
         @param : self, common_log_id, instance
         @return: customers
-        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 28 August 2020 .
-        Task_id: 165956
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 28 August 2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         process_import_export = self.env["woo.process.import.export"]
         customer_queues = []
@@ -101,14 +103,15 @@ class ResPartner(models.Model):
         @param woo_process_import_export_id: Record of process.import.export model.
         @return: Records of Customer queues.
         @author: Maulik Barad on Date 30-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         bus_bus_obj = self.env['bus.bus']
 
         queues = woo_process_import_export_id.woo_create_customer_queue(customer_data)
         message = "Customer Queue created %s" % queues.mapped('name')
-        bus_bus_obj.sendone((self._cr.dbname, 'res.partner', self.env.user.partner_id.id),
-                            {'type': 'simple_notification', 'title': 'WooCommerce Connector', 'message': message,
-                             'sticky': False, 'warning': True})
+        bus_bus_obj._sendone(self.env.user.partner_id, 'simple_notification',
+                             {'title': 'WooCommerce Connector', 'message': message, "sticky": False,
+                              "warning": True})
         self._cr.commit()
         return queues
 
@@ -118,7 +121,7 @@ class ResPartner(models.Model):
         @param : self, vals, instance=False
         @return: partner
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 2 September 2020 .
-        Task_id: 165956
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_partner_obj = self.env['woo.res.partner.ept']
 
@@ -162,7 +165,7 @@ class ResPartner(models.Model):
         This method use to create a Woocommerce layer customer.
         @param : self,woo_partner_values
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 31 August 2020 .
-        Task_id: 165956
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_partner_obj = self.env['woo.res.partner.ept']
         woo_partner_values.update({'partner_id': self.id})
@@ -176,6 +179,7 @@ class ResPartner(models.Model):
         @param parent_id: Id of existing partner, for searching in child of that partner.
         @param partner_type: Type of address to search for.
         @author: Maulik Barad on Date 31-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         domain = [('type', '=', partner_type)]
         if parent_id:
@@ -196,7 +200,7 @@ class ResPartner(models.Model):
         @param : self,customer_val,instance,parent_id,type
         @return: address_partner
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 2 September 2020 .
-        Task_id: 165956
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         address_key_list = ['name', 'street', 'street2', 'city', 'zip', 'phone', 'state_id', 'country_id']
 
@@ -239,7 +243,7 @@ class ResPartner(models.Model):
         @param : self,vals,instance
         @return: partner_vals
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 29 August 2020 .
-        Task_id: 165956
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         email = vals.get("email", False)
         first_name = vals.get("first_name")
@@ -262,4 +266,5 @@ class ResPartner(models.Model):
             'state_id': state and state.id or False, 'country_id': country and country.id or False,
             'is_company': False, 'lang': instance.woo_lang_id.code,
         }
-        return partner_vals
+        update_partner_vals = self.remove_special_chars_from_partner_vals(partner_vals)
+        return update_partner_vals

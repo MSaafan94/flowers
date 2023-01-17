@@ -42,6 +42,7 @@ class WooWebhookEpt(models.Model):
         """
         Inherited for creating webhook in WooCommerce store for the same.
         @author: Maulik Barad on Date 20-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         available_webhook = self.search_read([("topic", "=", vals.get("topic")),
                                               ("instance_id", "=", vals.get("instance_id"))], ["id"])
@@ -56,6 +57,7 @@ class WooWebhookEpt(models.Model):
         """
         Inherited method for deleting the webhooks from WooCommerce Store.
         @author: Maulik Barad on Date 20-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         webhook_ids = self.mapped("woo_id")
         if webhook_ids:
@@ -79,6 +81,7 @@ class WooWebhookEpt(models.Model):
         """
         Toggles the webhook status between Active and Paused in woocommerce.
         @author: Maulik Barad on Date 01-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         wc_api = self.instance_id.woo_connect()
         for hook in self:
@@ -101,6 +104,7 @@ class WooWebhookEpt(models.Model):
         """
         Gives delivery URL for the webhook as per the topic.
         @author: Maulik Barad on Date 20-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         delivery_url = ""
         topic = self.topic
@@ -131,6 +135,7 @@ class WooWebhookEpt(models.Model):
         Creates webhook in WooCommerce Store for webhook in Odoo if no webhook is
         there, otherwise updates status of the webhook, if it exists in WooCommerce store.
         @author: Maulik Barad on Date 20-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         topic = self.topic
         instance = self.instance_id
@@ -164,11 +169,11 @@ class WooWebhookEpt(models.Model):
             raise UserError(_("Something went wrong while creating Webhooks.\n\nPlease Check your Connection and "
                               "Instance Configuration.\n\n" + str(error)))
 
-        if response.status_code in [200, 201]:
-            new_webhook = response.json()
-            self.write({"woo_id": new_webhook.get("id"), "status": new_webhook.get("status"),
-                        "delivery_url": delivery_url})
-            _logger.info("Webhook created successfully.")
-            return True
-        raise UserError(
-            "Something went wrong while creating the webhook.\n" + str(response.status_code) + "\n" + response.reason)
+        if response.status_code not in [200, 201]:
+            raise UserError("Something went wrong while creating the webhook.\n" + str(
+                response.status_code) + "\n" + response.reason)
+        new_webhook = response.json()
+        self.write({"woo_id": new_webhook.get("id"), "status": new_webhook.get("status"),
+                    "delivery_url": delivery_url})
+        _logger.info("Webhook created successfully.")
+        return True

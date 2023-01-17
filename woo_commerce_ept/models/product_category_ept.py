@@ -32,7 +32,7 @@ class WooProductCategoryEpt(models.Model):
     image = fields.Binary()
     url = fields.Char(size=600, string='Image URL')
     response_url = fields.Char(size=600, string='Response URL', help="URL from WooCommerce")
-    complete_name = fields.Char(compute='_compute_complete_name')
+    complete_name = fields.Char(compute='_compute_complete_name', recursive=True)
 
     @api.depends('name', 'parent_id.complete_name')
     def _compute_complete_name(self):
@@ -55,6 +55,7 @@ class WooProductCategoryEpt(models.Model):
         @param common_log_book: Record of Log Book.
         @return: Log line if issue found.
         @author: Maulik Barad on Date 10-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         if not isinstance(response, requests.models.Response):
@@ -78,6 +79,7 @@ class WooProductCategoryEpt(models.Model):
         @param product_categories:
         @param woo_product_categ_name:
         @author: Maulik Barad on Date 10-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         product_categ_ids = []
 
@@ -104,7 +106,7 @@ class WooProductCategoryEpt(models.Model):
         @param model_id:
         @param woo_product_categ_name:
         @param sync_images_with_product:
-        @return:
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_categ = False
         wc_api = instance.woo_connect()
@@ -138,10 +140,7 @@ class WooProductCategoryEpt(models.Model):
     def import_all_woo_categories(self, wc_api, page, woo_common_log_id, model_id):
         """
         This method imports all categories, when multiple pages data is there.
-        @param wc_api:
-        @param page:
-        @param woo_common_log_id:
-        @param model_id:
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         try:
             res = wc_api.get("products/categories", params={'per_page': 100, 'page': page})
@@ -160,6 +159,7 @@ class WooProductCategoryEpt(models.Model):
         @param sync_images_with_product: If image needed to import.
         @param instance: Record of Instance.
         @author: Maulik Barad on Date 11-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_categ_id = category.get('id')
         slug = category.get('slug')
@@ -180,7 +180,8 @@ class WooProductCategoryEpt(models.Model):
                         binary_img_data = base64.b64encode(res_img.content)
                 except Exception as error:
                     _logger.info(str(error))
-            binary_img_data and vals.update({'image': binary_img_data})
+            if binary_img_data:
+                vals.update({'image': binary_img_data})
         woo_categ = self.search(["&", ('woo_instance_id', '=', instance.id),
                                  "|", ('woo_categ_id', '=', woo_categ_id),
                                  ('slug', '=', slug)], limit=1)
@@ -199,6 +200,7 @@ class WooProductCategoryEpt(models.Model):
         @param woo_common_log_id: Record of Log Book.
         @param woo_product_categ: If need to import particular category.
         @param sync_images_with_product: If image needed to import.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id("woo.product.categ.ept")
@@ -274,10 +276,7 @@ class WooProductCategoryEpt(models.Model):
     def export_product_categs(self, instance, woo_product_categs, woo_common_log_id, model_id):
         """
         This method is used to export categories to WooCommerce.
-        @param instance:
-        @param woo_product_categs:
-        @param woo_common_log_id:
-        @param model_id:
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         wc_api = instance.woo_connect()
         for woo_product_categ in woo_product_categs:
@@ -323,6 +322,7 @@ class WooProductCategoryEpt(models.Model):
         It will only update category which is already synced.
         @param : self
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 13/12/2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         wc_api = instance.woo_connect()
         common_log_line_obj = self.env['common.log.lines.ept']

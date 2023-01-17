@@ -19,6 +19,7 @@ class CommonLogBookEpt(models.Model):
         """
         This method prepares necessary data from the log lines.
         @author: Maulik Barad on Date 10-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         ir_model_obj = self.env["ir.model"]
 
@@ -41,8 +42,7 @@ class CommonLogBookEpt(models.Model):
     def create_woo_schedule_activity(self, queue_id=False, model_id=False, queue_crash_activity=False):
         """
         @author: Haresh Mori on date 03/12/2019
-        @change: Maulik Barad for Products.
-        :return: True
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_order_list = []
         mail_activity_obj = self.env["mail.activity"]
@@ -73,19 +73,22 @@ class CommonLogBookEpt(models.Model):
                                      "access right of this user :%s  ", user_id.name)
         return True
 
-    def woo_create_log_book(self, operation_type, instance, log_lines=[]):
-        """ This method is used to create a log book.
-            :param operation_type: Which type of operation is perform(import,export).
-            :param instance: Browseable record of instance.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 6 November 2020 .
-            Task_id: 168147 - Code refactoring : 5th - 6th November
+    def woo_create_log_book(self, operation_type, instance, log_lines=False):
+        """
+        This method is used to create a log book.
+        @param operation_type: Which type of operation is perform(import,export).
+        @param instance: Browsable record of instance.
+        @param log_lines: Ids of log lines.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 6 November 2020 .
+        Task_id: 168147 - Code refactoring : 5th - 6th November
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         vals = {
             'type': operation_type,
             'module': 'woocommerce_ept',
             'woo_instance_id': instance.id if instance else False,
             'active': True,
-            'log_lines': [(6, 0, log_lines)],
+            'log_lines': [(6, 0, log_lines if log_lines else [])],
         }
         log_book_id = self.create(vals)
         return log_book_id

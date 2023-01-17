@@ -2,7 +2,7 @@
 # See LICENSE file for full copyright and licensing details.
 {
     'name': 'Common Connector Library',
-    'version': '14.0.1.19',
+    'version': '15.0.2.0.3',
     'category': 'Sales',
     'license': 'OPL-1',
     'author': 'Emipro Technologies Pvt. Ltd.',
@@ -10,30 +10,38 @@
     'maintainer': 'Emipro Technologies Pvt. Ltd.',
     'summary': """Develop generalize method to process different operations & auto workflow process to manage
     order process automatically.""",
-    'depends': ['delivery', 'sale_stock', 'account', 'sale_management','stock'],
+    'depends': ['delivery', 'sale_stock', 'sale_management','account'],
     'data': ['security/ir.model.access.csv',
              'data/ir_sequence.xml',
              'data/ir_cron.xml',
-             'view/stock_quant_package_view.xml',
-             'view/common_log_book_view.xml',
-             'view/account_fiscal_position.xml',
-             'view/common_product_brand_view.xml',
-             'view/common_product_image_ept.xml',
-             'view/product_view.xml',
-             'view/product_template.xml',
-             'view/sale_order_view.xml',
-             'view/sale_workflow_process_view.xml',
+             'views/stock_quant_package_view.xml',
+             'views/common_log_book_view.xml',
+             'views/account_fiscal_position.xml',
+             'views/common_product_image_ept.xml',
+             'views/product_view.xml',
+             'views/product_template.xml',
+             'views/sale_order_view.xml',
+             'views/sale_workflow_process_view.xml',
              'data/automatic_workflow_data.xml',
-             'view/common_log_lines_ept.xml',
-            'view/assets.xml',
-    ],
-    'qweb': [
-        'static/src/xml/dashboard_widget.xml',
-    ],
+             'views/common_log_lines_ept.xml',
+             ],
     'installable': True,
     'price': 20.00,
     'currency': 'EUR',
     'images': ['static/description/Common-Connector-Library-Cover.jpg'],
-    #cloc settings
-    'cloc_exclude': ['**/*.xml',],
+    # cloc settings
+    'cloc_exclude': ['**/*.xml', ],
+    'assets': {
+        'web.assets_backend': [
+            '/common_connector_library/static/src/scss/graph_widget_ept.scss',
+            '/common_connector_library/static/src/scss/on_boarding_wizards.css',
+            '/common_connector_library/static/src/scss/queue_line_dashboard.scss',
+            '/common_connector_library/static/src/js/graph_widget_ept.js',
+            '/common_connector_library/static/src/js/queue_line_dashboard.js'
+        ],
+        'web.assets_qweb': [
+            '/common_connector_library/static/src/xml/dashboard_widget.xml',
+            '/common_connector_library/static/src/xml/queue_line_dashboard.xml'
+        ]
+    },
 }

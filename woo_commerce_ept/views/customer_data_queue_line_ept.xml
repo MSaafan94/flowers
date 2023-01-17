@@ -1,6 +1,25 @@
 <?xml version="1.0" ?>
 <odoo>
 
+    <!--Tree view of customer data queue line which is use in queue line dashboard-->
+    <record id="view_woo_customer_data_queue_line_tree" model="ir.ui.view">
+        <field name="name">woo.customer.data.queue.line.ept.tree</field>
+        <field name="model">woo.customer.data.queue.line.ept</field>
+        <field name="arch" type="xml">
+            <tree create="0" duplicate="0" edit="false" sample="1" decoration-danger="state=='failed'"
+                  decoration-success="state=='done'" decoration-info="state=='draft'">
+                <header>
+                    <button name="%(woo_commerce_ept.action_customer_import_process_manual)d"
+                            string="Process Queue Line" type="action"/>
+                </header>
+                <field name="name"/>
+                <field name="woo_synced_data_id"/>
+                <field name="last_process_date"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
     <record id="woo_customer_data_queue_line_ept_form_view" model="ir.ui.view">
         <field name="name">WooCommerce Customer Queue Line Ept</field>
         <field name="model">woo.customer.data.queue.line.ept</field>

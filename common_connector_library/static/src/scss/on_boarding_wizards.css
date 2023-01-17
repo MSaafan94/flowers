@@ -124,6 +124,10 @@ select.o_field_widget.o_onboard_select {
     overflow-y: auto;
 }
 
+div.o_onboard_boolean_toggle .fa-check-circle {
+    display:none;
+}
+
 div.o_onboard_boolean_toggle.custom-control.custom-checkbox > label.custom-control-label::before {
     background-color: #ffffff !important;
     border-radius: 4px;

@@ -7,6 +7,7 @@ class WooOrderDataQueueEpt(models.Model):
     """
     Model for storing imported order data and creating sale orders that data.
     @author: Maulik Barad on Date 24-Oct-2019.
+    Migrated by Maulik Barad on Date 07-Oct-2021.
     """
     _name = "woo.order.data.queue.ept"
     _description = "WooCommerce Order Data Queue"
@@ -34,12 +35,15 @@ class WooOrderDataQueueEpt(models.Model):
     queue_process_count = fields.Integer(string="Queue Process Times",
                                          help="it is used know queue how many time processed")
     is_action_require = fields.Boolean(default=False, help="it is used to find the action require queue")
+    queue_type = fields.Selection([("unshipped", "Unshipped"), ("shipped", "Shipped")], default="unshipped", copy=False,
+                                  help="Type of queue as per the order's data.")
 
     @api.depends("order_data_queue_line_ids.state")
     def _compute_lines(self):
         """
         Computes order queue lines by different states.
         @author: Maulik Barad on Date 07-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for record in self:
             queue_lines = record.order_data_queue_line_ids
@@ -47,13 +51,14 @@ class WooOrderDataQueueEpt(models.Model):
             record.draft_line_count = len(queue_lines.filtered(lambda x: x.state == "draft"))
             record.failed_line_count = len(queue_lines.filtered(lambda x: x.state == "failed"))
             record.done_line_count = len(queue_lines.filtered(lambda x: x.state == "done"))
-            record.cancelled_line_count = len(queue_lines.filtered(lambda x: x.state == "cancelled"))
+            record.cancelled_line_count = len(queue_lines.filtered(lambda x: x.state == "cancel"))
 
     @api.depends("order_data_queue_line_ids.state")
     def _compute_state(self):
         """
         Computes state of Order queue from different states of lines.
         @author: Maulik Barad on Date 07-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for record in self:
             if (record.done_line_count + record.cancelled_line_count) == record.total_line_count:
@@ -72,6 +77,7 @@ class WooOrderDataQueueEpt(models.Model):
         @author: Maulik Barad on Date 26-Sep-2019.
         @param vals: Dictionary of values.
         @return: New created record.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         ir_sequence_obj = self.env['ir.sequence']
         record_name = vals.get("name")
@@ -86,6 +92,7 @@ class WooOrderDataQueueEpt(models.Model):
         Creates queue lines from imported JSON data of orders.
         @author: Maulik Barad on Date 04-Nov-2019.
         @param orders: Orders in JSON format.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         vals_list = []
         woo_order_data_queue_line_obj = self.env["woo.order.data.queue.line.ept"]
@@ -102,10 +109,11 @@ class WooOrderDataQueueEpt(models.Model):
     def action_force_done(self):
         """
         Cancels all draft and failed queue lines.
-        @author: Maulik Barad on Date 25-Dec-2019. 
+        @author: Maulik Barad on Date 25-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         need_to_cancel_queue_lines = self.order_data_queue_line_ids.filtered(lambda x: x.state in ["draft", "failed"])
-        need_to_cancel_queue_lines.write({"state": "cancelled"})
+        need_to_cancel_queue_lines.write({"state": "cancel"})
         return True
 
     def open_log_book(self):
@@ -113,6 +121,7 @@ class WooOrderDataQueueEpt(models.Model):
         Returns action for opening the related sale order.
         @author: Maulik Barad on Date 24-Oct-2019.
         @return: Action to open Log Book record.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         return {
             "name": "Logs",
@@ -122,3 +131,8 @@ class WooOrderDataQueueEpt(models.Model):
             "views": [(False, "form")],
             'context': self.env.context
         }
+
+    @api.model
+    def retrieve_dashboard(self, *args, **kwargs):
+        dashboard = self.env['queue.line.dashboard']
+        return dashboard.get_data(table='woo.order.data.queue.line.ept')

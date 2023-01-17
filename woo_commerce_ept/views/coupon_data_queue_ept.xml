@@ -53,19 +53,19 @@
                     <div class="oe_button_box" name="button_box">
                         <button class="oe_stat_button" type="object" name="open_log_book" string="Logs"
                                 icon="fa-bookmark-o" attrs="{'invisible':[('common_log_book_id', '=', False)]}"/>
-                        <button class="oe_stat_button" icon="fa-list-ul">
+                        <button class="oe_stat_button" icon="fa-list-ul" disabled="1">
                             <field name="total_line_count" widget="statinfo" string="Total Lines"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-file-o">
+                        <button class="oe_stat_button" icon="fa-file-o" disabled="1">
                             <field name="draft_line_count" widget="statinfo" string="Draft"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-exclamation-triangle">
+                        <button class="oe_stat_button" icon="fa-exclamation-triangle" disabled="1">
                             <field name="failed_line_count" widget="statinfo" string="Failed"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-trash">
+                        <button class="oe_stat_button" icon="fa-trash" disabled="1">
                             <field name="cancelled_line_count" widget="statinfo" string="Cancelled"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-check-square-o">
+                        <button class="oe_stat_button" icon="fa-check-square-o" disabled="1">
                             <field name="done_line_count" widget="statinfo" string="Done"/>
                         </button>
                     </div>
@@ -115,7 +115,12 @@
         <field name="name">woo.coupon.data.queue.ept.tree</field>
         <field name="model">woo.coupon.data.queue.ept</field>
         <field name="arch" type="xml">
-            <tree create="0" delete="0" default_order="id desc" decoration-primary="is_process_queue==True" sample="1">
+            <tree create="0" delete="0" default_order="id desc" decoration-primary="is_process_queue==True" sample="1"
+                  js_class="queue_line_ept_dashboard">
+                <header>
+                    <button name="%(woo_commerce_ept.action_coupon_import_process_manual)d"
+                            string="Process Queue" type="action"/>
+                </header>
                 <field name="name"/>
                 <field name="woo_instance_id"/>
                 <field name="create_date"/>
@@ -123,6 +128,7 @@
                        decoration-warning="state == 'partial'" decoration-danger="state == 'failed'" widget="badge"/>
                 <field name="is_process_queue" invisible="1"/>
                 <field name="running_status" attrs="{'invisible':[('is_process_queue', '=', False)]}"/>
+                <field name="activity_ids" widget="list_activity" optional="show"/>
             </tree>
         </field>
     </record>
@@ -144,7 +150,7 @@
         </field>
     </record>
 
-    <menuitem id="woo_coupon_data_queue_ept_menu" name="Coupons" parent="woo_commerce_ept.menu_woo_queue_log"
-              sequence="4" action="action_woo_coupon_data_queue_ept"/>
+    <menuitem id="woo_coupon_data_queue_ept_menu" name="Coupons Queue" parent="woo_commerce_ept.menu_woo_logs"
+              sequence="5" action="action_woo_coupon_data_queue_ept"/>
 
 </odoo>

@@ -31,6 +31,7 @@ class WooTagsEpt(models.Model):
         @param common_log_book: Record of Log Book.
         @return: Log line if issue found.
         @author: Maulik Barad on Date 10-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         if not isinstance(response, requests.models.Response):
@@ -58,6 +59,7 @@ class WooTagsEpt(models.Model):
         :return: It will return True if the process of export tags in woo is successful completed
         @author: Dipak Gogiya @Emipro Technologies Pvt.Ltd
         @change: For exporting tags from wizard and action by Maulik Barad on Date 13-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id(self._name)
@@ -103,6 +105,7 @@ class WooTagsEpt(models.Model):
         :param model_id: It contain the id of the model class
         :return: It will return the response of collection details of tags from woo and its type is Dict
         @author: Dipak Gogiya @Emipro Technologies Pvt.Ltd
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         try:
             res = wc_api.get("products/tags", params={"per_page": 100, 'page': page})
@@ -121,6 +124,7 @@ class WooTagsEpt(models.Model):
         :param woo_common_log_id: It contain the browsable object of the common log book ept model
         :return: return True if the process of tags is successful complete
         @author: Dipak Gogiya @Emipro Technologies Pvt.Ltd
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id("woo.tags.ept")
@@ -164,6 +168,7 @@ class WooTagsEpt(models.Model):
         @param instances: Recordset of Woo Instance.
         @param woo_product_tags: Recordset of Tag in Woo layer to update.
         @param common_log_book_id: Record of Common Log Book to add log lines in it.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id(self._name)

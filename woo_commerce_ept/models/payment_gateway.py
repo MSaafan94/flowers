@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+    # -*- coding: utf-8 -*-
 # See LICENSE file for full copyright and licensing details.
 from odoo import models, fields, _
 from odoo.exceptions import UserError
@@ -22,6 +22,7 @@ class WooPaymentGateway(models.Model):
         This method checks for existing methods and creates if not existed.
         @param instance: Record of Instance.
         @param payment_methods_data: Response from WooCommerce of payment methods.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for payment_method in payment_methods_data:
             if payment_method.get('enabled'):
@@ -36,6 +37,7 @@ class WooPaymentGateway(models.Model):
     def woo_get_payment_gateway(self, instance):
         """
         Get all active payment methods from woocommerce by calling API.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         log_line_obj = self.env["common.log.lines.ept"]
         common_log_book_obj = self.env["common.log.book.ept"]

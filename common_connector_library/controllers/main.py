@@ -8,26 +8,25 @@ from odoo.http import request
 
 _logger = logging.getLogger(__name__)
 
+
 class ImageUrl(http.Controller):
 
     @http.route('/lf/i/<string:encodedimage>', type='http', auth='public')
-    def create_image_url(self, encodedimage='', **kwargs):
-        """
-        This method is used to get image based on URL for in common product image model.URL will be generated
-        automatically in ERP.
-        :param encodedimage: Binary data
-        :param kwargs: kwargs
-        :return: Binary data of image
+    def create_image_url(self, encodedimage=''):
+        """This method is used to get images based on URL which URL set common product images.URL will be generated
+            automatically in ERP.
+            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 18 September 2021 .
+            Task_id: 178058
         """
         if encodedimage:
             try:
                 decode_data = base64.urlsafe_b64decode(encodedimage)
                 res_id = str(decode_data, "utf-8")
                 status, headers, content = request.env['ir.http'].sudo().binary_content(
-                        model='common.product.image.ept', id=res_id,
-                        field='image')
+                    model='common.product.image.ept', id=res_id,
+                    field='image')
                 content_base64 = base64.b64decode(content) if content else ''
-                _logger.info("Image found with status %s",str(status))
+                _logger.info("Image found with status %s", str(status))
                 headers.append(('Content-Length', len(content_base64)))
                 return request.make_response(content_base64, headers)
             except Exception:

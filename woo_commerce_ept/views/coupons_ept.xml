@@ -130,12 +130,12 @@
     </record>
 
     <record id="action_woo_coupons_ept" model="ir.actions.act_window">
-        <field name="name">Coupons</field>
+        <field name="name">Product Coupons</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">woo.coupons.ept</field>
         <field name="view_mode">tree,form</field>
     </record>
 
-    <menuitem action="action_woo_coupons_ept" name="Coupons" id="woo_coupons_ept_menu"
-              parent="woo_commerce_ept.menu_item_parent_woo_products_ept" sequence="4"/>
+    <menuitem action="action_woo_coupons_ept" name="Product Coupons" id="woo_coupons_ept_menu"
+              parent="woo_commerce_ept.menu_item_parent_woo_products_ept" sequence="7"/>
 </odoo>

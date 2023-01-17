@@ -15,8 +15,8 @@ class WooCancelOrderWizard(models.TransientModel):
 
     message = fields.Char("Reason")
     journal_id = fields.Many2one('account.journal', 'Journal',
-                                 help='You can select here the journal to use for the credit note that will be created.'
-                                      'If you leave that field empty, it will use the same journal as the current invoice.')
+                                 help="You can select the journal to use for the credit note that will be created. If "
+                                      "it is empty, then it will use the same journal as the current invoice.")
     auto_create_credit_note = fields.Boolean("Create Credit Note In ERP", default=True,
                                              help="It will create a credit not in Odoo")
     refund_date = fields.Date(default=fields.Date.context_today, required=True)
@@ -26,8 +26,7 @@ class WooCancelOrderWizard(models.TransientModel):
         Cancel Order In Woocommerce store.
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 23-11-2019.
         Task Id: 156886
-        Migration done by Haresh Mori @ Emipro on date 30 September 2020 .
-        Task Id: 167148
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         sale_order_obj = self.env['sale.order']
         active_id = self._context.get('active_id')
@@ -63,11 +62,11 @@ class WooCancelOrderWizard(models.TransientModel):
         It will create a credit note in Odoo.
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 23-11-2019.
         Task Id: 156886
-        Migration done by Haresh Mori @ Emipro on date 30 September 2020 .
-        Task Id: 167148
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
-        moves = order_id.invoice_ids.filtered(lambda invoice: invoice.move_type == 'out_invoice' and
-                                                              invoice.payment_state in ['paid', 'in_payment'])
+        moves = order_id.invoice_ids.filtered(lambda invoice:
+                                              invoice.move_type == 'out_invoice' and
+                                              invoice.payment_state in ['paid', 'in_payment'])
         if not moves:
             order_id._cr.commit()
             warning_message = "Order cancel in WooCommerce But unable to create a credit note in Odoo \n" \
@@ -79,12 +78,12 @@ class WooCancelOrderWizard(models.TransientModel):
             date = self.refund_date or move.date
             default_values_list.append({
                 'ref': _('Reversal of: %s, %s') % (move.name, self.message) if self.message else _(
-                    'Reversal of: %s') % (move.name),
+                    'Reversal of: %s') % move.name,
                 'date': date,
                 'invoice_date': move.is_invoice(include_receipts=True) and date or False,
                 'journal_id': self.journal_id and self.journal_id.id or move.journal_id.id,
                 'invoice_payment_term_id': None,
-                'auto_post': True if date > fields.Date.context_today(self) else False,
+                'auto_post': date > fields.Date.context_today(self),
             })
         moves._reverse_moves(default_values_list)
 

@@ -11,6 +11,7 @@ class DataQueueMixinEpt(models.AbstractModel):
         """
         This method will delete data queues from database.
         @author: Haresh Mori
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if not queue_data:
             queue_data = []

@@ -8,6 +8,9 @@ import requests
 
 from odoo import models, fields, api, _
 from odoo.addons.base.models.res_partner import _tz_get
+from odoo.addons.base_import.models.base_import import check_patterns
+from odoo.addons.base_import.models.base_import import DATE_PATTERNS
+from odoo.addons.base_import.models.base_import import TIME_PATTERNS
 from odoo.exceptions import UserError
 
 from .. import woocommerce
@@ -32,6 +35,7 @@ class WooInstanceEpt(models.Model):
     def _get_default_warehouse(self):
         """
         Sets default warehouse from instance's company.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         stock_warehouse_obj = self.env['stock.warehouse']
         warehouse = stock_warehouse_obj.search([('company_id', '=', self.company_id.id)], limit=1, order='id')
@@ -41,6 +45,7 @@ class WooInstanceEpt(models.Model):
     def _default_stock_field(self):
         """
         Sets Free qty field as default stock field for exporting the stock.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         stock_field = self.env['ir.model.fields'].search([('model_id.model', '=', 'product.product'),
                                                           ('name', '=', 'free_qty')], limit=1)
@@ -50,6 +55,7 @@ class WooInstanceEpt(models.Model):
     def _get_default_language(self):
         """
         Sets default language in instance same as user's.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         lang_code = self.env.user.lang
         language = self.env["res.lang"].search([('code', '=', lang_code)])
@@ -59,6 +65,7 @@ class WooInstanceEpt(models.Model):
     def _default_payment_term(self):
         """
         Sets default payment terms.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         payment_term = self.env.ref("account.account_payment_term_immediate")
         return payment_term.id if payment_term else False
@@ -68,6 +75,7 @@ class WooInstanceEpt(models.Model):
         """
         Return default status of woo order, for importing the particular orders having this status.
         @author: Maulik Barad on Date 11-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         order_status = self.env.ref('woo_commerce_ept.processing')
         return [(6, 0, [order_status.id])] if order_status else False
@@ -77,6 +85,7 @@ class WooInstanceEpt(models.Model):
         """
         Sets default shipping product to set in WooCommerce order.
         @author: Haresh Mori on Date 29-Sep-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         shipping_product = self.env.ref('woo_commerce_ept.product_woo_shipping_ept', False)
         if not shipping_product:
@@ -89,6 +98,7 @@ class WooInstanceEpt(models.Model):
         """
         Gives default discount product to set in imported woo order.
         @author: Maulik Barad on Date 11-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         fee_product = self.env.ref('woo_commerce_ept.product_woo_fees_ept', False)
         if not fee_product:
@@ -101,6 +111,7 @@ class WooInstanceEpt(models.Model):
         """
         Gives default discount product to set in imported woo order.
         @author: Maulik Barad on Date 11-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         discount_product = self.env.ref('woo_commerce_ept.product_woo_discount_ept', False)
         if not discount_product:
@@ -114,14 +125,17 @@ class WooInstanceEpt(models.Model):
         Gives all timezones from base.
         @author: Maulik Barad on Date 18-Nov-2019.
         @return: Calls base method for all timezones.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         return _tz_get(self)
 
     @api.model
     def set_woo_import_after_date(self):
-        """ It is used to set after order date which has already created an instance.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 16 March 2021.
-            Task_id: 172067 - Order import after date
+        """
+        It is used to set after order date which has already created an instance.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 16 March 2021.
+        Task_id: 172067 - Order import after date
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         sale_order_obj = self.env["sale.order"]
         instances = self.search([])
@@ -190,6 +204,10 @@ class WooInstanceEpt(models.Model):
                                            help="Check if you want to automatically update stock levels from Odoo to "
                                                 "WooCommerce.")
     auto_import_order = fields.Boolean("Auto Import Order from Woo?", help="Imports orders at certain interval.")
+    auto_import_complete_order = fields.Boolean("Auto Import Complete Order from Woo?",
+                                                help="Imports complete orders at certain interval.")
+    auto_import_cancel_order = fields.Boolean("Auto Import Cancel Order from Woo?",
+                                              help="Imports cancel orders at certain interval.")
     auto_update_order_status = fields.Boolean(string="Auto Update Order Status in Woo?",
                                               help="Automatically update order status to WooCommerce.")
     store_timezone = fields.Selection("_woo_tz_get", help="Timezone of Store for requesting data.")
@@ -224,22 +242,84 @@ class WooInstanceEpt(models.Model):
                                              help="Check this if you want to export/update product images from Odoo "
                                                   "to Woocommerce store.")
     last_completed_order_import_date = fields.Datetime(help="This date is when the completed orders imported at last.")
+    last_cancel_order_import_date = fields.Datetime(help="This date is when the canceled orders imported at last.")
     tax_rounding_method = fields.Selection([("round_per_line", "Round per Line"), ("round_globally", "Round Globally")],
                                            default="round_per_line")
     is_instance_create_from_onboarding_panel = fields.Boolean(default=False)
     is_onboarding_configurations_done = fields.Boolean(default=False)
-    woo_order_data = fields.Text(compute="_kanban_woo_order_data")
+    woo_order_data = fields.Text(compute="_compute_kanban_woo_order_data")
     import_order_after_date = fields.Datetime(help="Connector only imports those orders which have created after a "
                                                    "given date.", default=set_woo_import_after_date)
-    import_product_page_count = fields.Integer(default=1, help="It will fetch products of WooCommerce from given "
-                                                                       "page numbers.")
+    import_products_last_date = fields.Datetime(help="This date is when the products are imported at last.")
 
-    def _kanban_woo_order_data(self):
+    # Analytic
+    woo_analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account',
+                                              domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+    woo_analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Analytic Tags',
+                                            domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+
+    # WooCommerce Meta Field Mapping
+    meta_mapping_ids = fields.One2many("woo.meta.mapping.ept", "instance_id")
+
+    def meta_field_mapping(self, vals, operation_type, record):
+        """
+        This method is used for map woocommerce meta field with Odoo field.
+        @author: Meera Sidapara @Emipro Technologies Pvt. Ltd on date 12 May 2022.
+        @Task: 189552 - Meta data sync
+        """
+        _logger.info("Mapping Method Call========")
+        if operation_type == "import":
+            meta_vals_list = vals.get('meta_data')
+            for meta_value in meta_vals_list:
+                meta_mapping = self.meta_mapping_ids.filtered(
+                    lambda mapping: mapping.woo_operation == self._context.get(
+                        'woo_operation') and mapping.woo_meta_key == meta_value.get(
+                        'key') and mapping.model_id.model == record._name)
+                if meta_mapping:
+                    self.write_meta_key_value_in_record(meta_mapping, meta_value, record)
+        elif operation_type == "export":
+            meta_mapping_record = self.meta_mapping_ids.filtered(
+                lambda mapping: mapping.woo_operation == self._context.get(
+                    'woo_operation') and mapping.model_id.model == record._name)
+            data = list(filter(lambda val: val.get('meta_data'), vals))
+            if meta_mapping_record:
+                field_value = getattr(record, meta_mapping_record.field_id.name)
+                if not data:
+                    data.append({
+                        'key': meta_mapping_record.woo_meta_key, 'value': field_value})
+                    vals[0].update({'meta_data': data})
+                else:
+                    vals[0].get('meta_data').append({
+                        'key': meta_mapping_record.woo_meta_key, 'value': field_value})
+            return vals
+        return True
+
+    def write_meta_key_value_in_record(self, meta_mapping, meta_value, record):
+        """
+        This method is used for write woocommerce meta key value in Odoo field.
+        @author: Meera Sidapara @Emipro Technologies Pvt. Ltd on date 14 May 2022.
+        @Task: 189552 - Meta data sync
+        """
+        try:
+            meta_key_value = meta_value.get('value')
+            if meta_mapping.field_id.ttype in ['datetime', 'date']:
+                date_time_pattern = ["%s %s" % (d, t) for d in DATE_PATTERNS for t in TIME_PATTERNS]
+                patterns = DATE_PATTERNS + date_time_pattern
+                match_format = check_patterns(patterns, [meta_value.get('value')])
+                meta_key_value = datetime.strptime(meta_value.get('value'), match_format)
+            field = record._fields[meta_mapping.field_id.name]
+            record_value = field.convert_to_cache(meta_key_value, record)
+            record.write(
+                {meta_mapping.field_id.name: record_value})
+        except Exception as error:
+            _logger.warning(_('Something went wrong while sync WooCommerce Metadata \n %s'), error)
+        return True
+
+    def _compute_kanban_woo_order_data(self):
         """
         Use: This method is used to get all data for dashboard
         Added by: Preet Bhatti @Emipro Technologies
         Added on: 30/10/20
-        :return:
         """
         if not self._context.get('sort'):
             context = dict(self.env.context)
@@ -291,70 +371,70 @@ class WooInstanceEpt(models.Model):
 
         def get_current_week_date(record):
             self._cr.execute("""SELECT to_char(date(d.day),'DAY'), t.amount_untaxed as sum
-                                FROM  (
-                                   SELECT day
-                                   FROM generate_series(date(date_trunc('week', (current_date)))
-                                    , date(date_trunc('week', (current_date)) + interval '6 days')
-                                    , interval  '1 day') day
-                                   ) d
-                                LEFT   JOIN 
-                                (SELECT date(date_order)::date AS day, sum(amount_untaxed) as amount_untaxed
-                                   FROM   sale_order
-                                   WHERE  date(date_order) >= (select date_trunc('week', date(current_date)))
-                                   AND    date(date_order) <= (select date_trunc('week', date(current_date)) + interval '6 days')
-                                   AND woo_instance_id=%s and state in ('sale','done')
-                                   GROUP  BY 1
-                                   ) t USING (day)
-                                ORDER  BY day;""" % record.id)
+                                    FROM  (
+                                       SELECT day
+                                       FROM generate_series(date(date_trunc('week', (current_date)))
+                                        , date(date_trunc('week', (current_date)) + interval '6 days')
+                                        , interval  '1 day') day
+                                       ) d
+                                    LEFT   JOIN 
+                                    (SELECT date(date_order)::date AS day, sum(amount_untaxed) as amount_untaxed
+                                       FROM   sale_order
+                                       WHERE  date(date_order) >= (select date_trunc('week', date(current_date)))
+                                       AND    date(date_order) <= (select date_trunc('week', date(current_date)) + interval '6 days')
+                                       AND woo_instance_id=%s and state in ('sale','done')
+                                       GROUP  BY 1
+                                       ) t USING (day)
+                                    ORDER  BY day;""" % record.id)
             return self._cr.dictfetchall()
 
         def graph_of_current_year(record):
             self._cr.execute("""select TRIM(TO_CHAR(DATE_TRUNC('month',month),'MONTH')),sum(amount_untaxed) from
-                                    (
-                                    SELECT 
-                                      DATE_TRUNC('month',date(day)) as month,
-                                      0 as amount_untaxed
-                                    FROM generate_series(date(date_trunc('year', (current_date)))
-                                        , date(date_trunc('year', (current_date)) + interval '1 YEAR - 1 day')
-                                        , interval  '1 MONTH') day
-                                    union all
-                                    SELECT DATE_TRUNC('month',date(date_order)) as month,
-                                    sum(amount_untaxed) as amount_untaxed
-                                      FROM   sale_order
-                                    WHERE  date(date_order) >= (select date_trunc('year', date(current_date))) AND date(date_order)::date <= (select date_trunc('year', date(current_date)) + '1 YEAR - 1 day')
-                                    and woo_instance_id = %s and state in ('sale','done')
-                                    group by DATE_TRUNC('month',date(date_order))
-                                    order by month
-                                    )foo 
-                                    GROUP  BY foo.month
-                                    order by foo.month""" % record.id)
+                                        (
+                                        SELECT 
+                                          DATE_TRUNC('month',date(day)) as month,
+                                          0 as amount_untaxed
+                                        FROM generate_series(date(date_trunc('year', (current_date)))
+                                            , date(date_trunc('year', (current_date)) + interval '1 YEAR - 1 day')
+                                            , interval  '1 MONTH') day
+                                        union all
+                                        SELECT DATE_TRUNC('month',date(date_order)) as month,
+                                        sum(amount_untaxed) as amount_untaxed
+                                          FROM   sale_order
+                                        WHERE  date(date_order) >= (select date_trunc('year', date(current_date))) AND date(date_order)::date <= (select date_trunc('year', date(current_date)) + '1 YEAR - 1 day')
+                                        and woo_instance_id = %s and state in ('sale','done')
+                                        group by DATE_TRUNC('month',date(date_order))
+                                        order by month
+                                        )foo 
+                                        GROUP  BY foo.month
+                                        order by foo.month""" % record.id)
             return self._cr.dictfetchall()
 
         def graph_of_current_month(record):
             self._cr.execute("""select EXTRACT(DAY from date(date_day)) :: integer,sum(amount_untaxed) from (
-                        SELECT 
-                          day::date as date_day,
-                          0 as amount_untaxed
-                        FROM generate_series(date(date_trunc('month', (current_date)))
-                            , date(date_trunc('month', (current_date)) + interval '1 MONTH - 1 day')
-                            , interval  '1 day') day
-                        union all
-                        SELECT date(date_order)::date AS date_day,
-                        sum(amount_untaxed) as amount_untaxed
-                          FROM   sale_order
-                        WHERE  date(date_order) >= (select date_trunc('month', date(current_date)))
-                        AND date(date_order)::date <= (select date_trunc('month', date(current_date)) + '1 MONTH - 1 day')
-                        and woo_instance_id = %s and state in ('sale','done')
-                        group by 1
-                        )foo 
-                        GROUP  BY 1
-                        ORDER  BY 1""" % record.id)
+                            SELECT 
+                              day::date as date_day,
+                              0 as amount_untaxed
+                            FROM generate_series(date(date_trunc('month', (current_date)))
+                                , date(date_trunc('month', (current_date)) + interval '1 MONTH - 1 day')
+                                , interval  '1 day') day
+                            union all
+                            SELECT date(date_order)::date AS date_day,
+                            sum(amount_untaxed) as amount_untaxed
+                              FROM   sale_order
+                            WHERE  date(date_order) >= (select date_trunc('month', date(current_date)))
+                            AND date(date_order)::date <= (select date_trunc('month', date(current_date)) + '1 MONTH - 1 day')
+                            and woo_instance_id = %s and state in ('sale','done')
+                            group by 1
+                            )foo 
+                            GROUP  BY 1
+                            ORDER  BY 1""" % record.id)
             return self._cr.dictfetchall()
 
         def graph_of_all_time(record):
             self._cr.execute("""select TRIM(TO_CHAR(DATE_TRUNC('month',date_order),'YYYY-MM')),sum(amount_untaxed)
-                                from sale_order where woo_instance_id = %s and state in ('sale','done')
-                                group by DATE_TRUNC('month',date_order) order by DATE_TRUNC('month',date_order)""" %
+                                    from sale_order where woo_instance_id = %s and state in ('sale','done')
+                                    group by DATE_TRUNC('month',date_order) order by DATE_TRUNC('month',date_order)""" %
                              record.id)
             return self._cr.dictfetchall()
 
@@ -383,18 +463,18 @@ class WooInstanceEpt(models.Model):
             previous_total = 0.0
             day_of_week = date.weekday(date.today())
             self._cr.execute("""select sum(amount_untaxed) as current_week from sale_order
-                                where date(date_order) >= (select date_trunc('week', date(current_date))) and 
-                                woo_instance_id=%s and state in ('sale','done')""" % record.id)
+                                    where date(date_order) >= (select date_trunc('week', date(current_date))) and 
+                                    woo_instance_id=%s and state in ('sale','done')""" % record.id)
             current_week_data = self._cr.dictfetchone()
             if current_week_data:
                 current_total = current_week_data.get('current_week') if current_week_data.get('current_week') else 0
             # Previous week data
             self._cr.execute("""select sum(amount_untaxed) as previous_week from sale_order
-                            where date(date_order) between (select date_trunc('week', current_date) - interval '7 day') 
-                            and (select date_trunc('week', (select date_trunc('week', current_date) - interval '7 
-                            day')) + interval '%s day')
-                            and woo_instance_id=%s and state in ('sale','done')
-                            """ % (day_of_week, record.id))
+                                where date(date_order) between (select date_trunc('week', current_date) - interval '7 day') 
+                                and (select date_trunc('week', (select date_trunc('week', current_date) - interval '7 
+                                day')) + interval '%s day')
+                                and woo_instance_id=%s and state in ('sale','done')
+                                """ % (day_of_week, record.id))
             previous_week_data = self._cr.dictfetchone()
             if previous_week_data:
                 previous_total = previous_week_data.get('previous_week') if previous_week_data.get(
@@ -406,18 +486,18 @@ class WooInstanceEpt(models.Model):
             previous_total = 0.0
             day_of_month = date.today().day - 1
             self._cr.execute("""select sum(amount_untaxed) as current_month from sale_order
-                                where date(date_order) >= (select date_trunc('month', date(current_date)))
-                                and woo_instance_id=%s and state in ('sale','done')""" % record.id)
+                                    where date(date_order) >= (select date_trunc('month', date(current_date)))
+                                    and woo_instance_id=%s and state in ('sale','done')""" % record.id)
             current_data = self._cr.dictfetchone()
             if current_data:
                 current_total = current_data.get('current_month') if current_data.get('current_month') else 0
             # Previous week data
             self._cr.execute("""select sum(amount_untaxed) as previous_month from sale_order where date(date_order)
-                            between (select date_trunc('month', current_date) - interval '1 month') and 
-                            (select date_trunc('month', (select date_trunc('month', current_date) - interval '1 
-                            month')) + interval '%s days')
-                            and woo_instance_id=%s and state in ('sale','done')
-                            """ % (day_of_month, record.id))
+                                between (select date_trunc('month', current_date) - interval '1 month') and 
+                                (select date_trunc('month', (select date_trunc('month', current_date) - interval '1 
+                                month')) + interval '%s days')
+                                and woo_instance_id=%s and state in ('sale','done')
+                                """ % (day_of_month, record.id))
             previous_data = self._cr.dictfetchone()
             if previous_data:
                 previous_total = previous_data.get('previous_month') if previous_data.get('previous_month') else 0
@@ -430,17 +510,17 @@ class WooInstanceEpt(models.Model):
             year_end = date.today()
             delta = (year_end - year_begin).days - 1
             self._cr.execute("""select sum(amount_untaxed) as current_year from sale_order
-                                where date(date_order) >= (select date_trunc('year', date(current_date))) 
-                                and woo_instance_id=%s and state in ('sale','done')""" % record.id)
+                                    where date(date_order) >= (select date_trunc('year', date(current_date))) 
+                                    and woo_instance_id=%s and state in ('sale','done')""" % record.id)
             current_data = self._cr.dictfetchone()
             if current_data:
                 current_total = current_data.get('current_year') if current_data.get('current_year') else 0
             # Previous week data
             self._cr.execute("""select sum(amount_untaxed) as previous_year from sale_order where date(date_order)
-                            between (select date_trunc('year', date(current_date) - interval '1 year')) and 
-                            (select date_trunc('year', date(current_date) - interval '1 year') + interval '%s days') 
-                            and woo_instance_id=%s and state in ('sale','done')
-                            """ % (delta, record.id))
+                                between (select date_trunc('year', date(current_date) - interval '1 year')) and 
+                                (select date_trunc('year', date(current_date) - interval '1 year') + interval '%s days') 
+                                and woo_instance_id=%s and state in ('sale','done')
+                                """ % (delta, record.id))
             previous_data = self._cr.dictfetchone()
             if previous_data:
                 previous_total = previous_data.get('previous_year') if previous_data.get('previous_year') else 0
@@ -474,17 +554,20 @@ class WooInstanceEpt(models.Model):
         order_query = """select id from sale_order where woo_instance_id= %s and state in ('sale','done')""" % self.id
 
         def orders_of_current_week(order_query):
-            qry = order_query + " and date(date_order) >= (select date_trunc('week', date(current_date))) order by date(date_order)"
+            qry = order_query + " and date(date_order) >= (select date_trunc('week', date(current_date))) order by " \
+                                "date(date_order)"
             self._cr.execute(qry)
             return self._cr.dictfetchall()
 
         def orders_of_current_month(order_query):
-            qry = order_query + " and date(date_order) >= (select date_trunc('month', date(current_date))) order by date(date_order)"
+            qry = order_query + " and date(date_order) >= (select date_trunc('month', date(current_date))) order by " \
+                                "date(date_order)"
             self._cr.execute(qry)
             return self._cr.dictfetchall()
 
         def orders_of_current_year(order_query):
-            qry = order_query + " and date(date_order) >= (select date_trunc('year', date(current_date))) order by date(date_order)"
+            qry = order_query + " and date(date_order) >= (select date_trunc('year', date(current_date))) order by " \
+                                "date(date_order)"
             self._cr.execute(qry)
             return self._cr.dictfetchall()
 
@@ -503,7 +586,7 @@ class WooInstanceEpt(models.Model):
         else:
             result = orders_of_all_time(self)
         order_ids = [data.get('id') for data in result]
-        view = self.env.ref('woo_commerce_ept.action_woo_orders').read()[0]
+        view = self.env.ref('woo_commerce_ept.action_woo_orders').sudo().read()[0]
         action = self.prepare_action(view, [('id', 'in', order_ids)])
         order_data.update({'order_count': len(order_ids), 'order_action': action})
         return order_data
@@ -517,10 +600,10 @@ class WooInstanceEpt(models.Model):
         :return: total number of Woo shipped orders ids and action for shipped orders of current instance
         """
         shipped_query = """select so.id from stock_picking sp
-                             inner join sale_order so on so.procurement_group_id=sp.group_id inner 
-                             join stock_location on stock_location.id=sp.location_dest_id and stock_location.usage='customer' 
-                             where sp.updated_in_woo = True and sp.state != 'cancel' and 
-                             so.woo_instance_id=%s""" % self.id
+                                 inner join sale_order so on so.procurement_group_id=sp.group_id inner 
+                                 join stock_location on stock_location.id=sp.location_dest_id and stock_location.usage='customer' 
+                                 where sp.updated_in_woo = True and sp.state != 'cancel' and 
+                                 so.woo_instance_id=%s""" % self.id
 
         def shipped_order_of_current_week(shipped_query):
             qry = shipped_query + " and date(so.date_order) >= (select date_trunc('week', date(current_date)))"
@@ -551,7 +634,7 @@ class WooInstanceEpt(models.Model):
         else:
             result = shipped_order_of_all_time(shipped_query)
         order_ids = [data.get('id') for data in result]
-        view = self.env.ref('woo_commerce_ept.action_woo_orders').read()[0]
+        view = self.env.ref('woo_commerce_ept.action_woo_orders').sudo().read()[0]
         action = self.prepare_action(view, [('id', 'in', order_ids)])
         order_data.update({'order_count': len(order_ids), 'order_action': action})
         return order_data
@@ -566,11 +649,11 @@ class WooInstanceEpt(models.Model):
         """
         product_data = {}
         self._cr.execute("""select count(id) as total_count from woo_product_template_ept where
-                        exported_in_woo = True and woo_instance_id = %s""" % self.id)
+                            exported_in_woo = True and woo_instance_id = %s""" % self.id)
         result = self._cr.dictfetchall()
         if result:
             total_count = result[0].get('total_count')
-        view = self.env.ref('woo_commerce_ept.action_woo_product_template_exported_ept').read()[0]
+        view = self.env.ref('woo_commerce_ept.action_woo_product_template_exported_ept').sudo().read()[0]
         action = self.prepare_action(view, [('exported_in_woo', '=', True), ('woo_instance_id', '=', self.id)])
         product_data.update({'product_count': total_count, 'product_action': action})
         return product_data
@@ -588,7 +671,7 @@ class WooInstanceEpt(models.Model):
                          % self.id)
         result = self._cr.dictfetchall()
         customer_ids = [data.get('partner_id') for data in result]
-        view = self.env.ref('woo_commerce_ept.action_woo_partner').read()[0]
+        view = self.env.ref('woo_commerce_ept.action_woo_partner').sudo().read()[0]
         action = self.prepare_action(view, [('id', 'in', customer_ids), ('active', 'in', [True, False])])
         customer_data.update({'customer_count': len(customer_ids), 'customer_action': action})
         return customer_data
@@ -632,7 +715,7 @@ class WooInstanceEpt(models.Model):
         else:
             result = refund_of_all_time(refund_query)
         refund_ids = [data.get('id') for data in result]
-        view = self.env.ref('woo_commerce_ept.action_refund_woo_invoices_ept').read()[0]
+        view = self.env.ref('woo_commerce_ept.action_refund_woo_invoices_ept').sudo().read()[0]
         # [('woo_instance_id', '=', record_id)]
         action = self.prepare_action(view, [('id', 'in', refund_ids)])
         refund_data.update({'refund_count': len(refund_ids), 'refund_action': action})
@@ -671,7 +754,7 @@ class WooInstanceEpt(models.Model):
         Added on: 31/10/20
         :return: Woo operation action details
         """
-        view = self.env.ref('woo_commerce_ept.action_wizard_woo_instance_import_export_operations').read()[0]
+        view = self.env.ref('woo_commerce_ept.action_wizard_woo_instance_import_export_operations').sudo().read()[0]
         action = self.prepare_action(view, [])
         action.update({'context': {'default_woo_instance_id': record_id}})
         return action
@@ -685,7 +768,7 @@ class WooInstanceEpt(models.Model):
         Added on: 31/10/20
         :return: Woo report action details
         """
-        view = self.env.ref('woo_commerce_ept.woo_sale_report_action_dashboard').read()[0]
+        view = self.env.ref('woo_commerce_ept.woo_sale_report_action_dashboard').sudo().read()[0]
         action = self.prepare_action(view, [('woo_instance_id', '=', record_id)])
         action.update({'context': {'search_default_woo_instances': record_id, 'search_default_Sales': 1,
                                    'search_default_filter_date': 1}})
@@ -700,7 +783,7 @@ class WooInstanceEpt(models.Model):
         Added on: 31/10/20
         :return: Woo logs action details
         """
-        view = self.env.ref('woo_commerce_ept.action_common_log_book_instance_ept').read()[0]
+        view = self.env.ref('woo_commerce_ept.action_common_log_book_instance_ept').sudo().read()[0]
         return self.prepare_action(view, [('woo_instance_id', '=', record_id)])
 
     _sql_constraints = [('unique_host', 'unique(woo_host)',
@@ -711,6 +794,7 @@ class WooInstanceEpt(models.Model):
         This method is overridden for archiving other properties, while archiving the instance from the Action menu.
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 6 October 2020 .
         Task_id: 166948
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         context = dict(self._context)
         context.update({'active_ids': self.ids})
@@ -721,6 +805,7 @@ class WooInstanceEpt(models.Model):
         """
         This method archives products, auto crons, payment gateways and financial statuses and deletes webhooks,
         when an instance is archived.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_template_obj = self.env['woo.product.template.ept']
         data_queue_mixin_obj = self.env['data.queue.mixin.ept']
@@ -733,7 +818,7 @@ class WooInstanceEpt(models.Model):
         auto_crons = ir_cron_obj.search([("name", "ilike", self.name), ("active", "=", True)])
         if auto_crons:
             auto_crons.write(deactivate)
-        self.woo_stock_auto_export = self.auto_update_order_status = self.auto_import_order = False
+        self.woo_stock_auto_export = self.auto_update_order_status = self.auto_import_order = self.auto_import_complete_order = False
         woo_webhook_obj.search([('instance_id', '=', self.id)]).unlink()
         self.create_woo_product_webhook = self.create_woo_order_webhook = self.create_woo_customer_webhook = \
             self.create_woo_coupon_webhook = False
@@ -748,6 +833,7 @@ class WooInstanceEpt(models.Model):
         archiving the instance.
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 09-12-2019.
         :Task id: 158502
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_template_obj = self.env['woo.product.template.ept']
         domain = [('woo_instance_id', '=', self.id)]
@@ -762,11 +848,13 @@ class WooInstanceEpt(models.Model):
         return True
 
     def action_open_deactive_wizard(self):
-        """ This method is used to open a wizard to display the information related to how many data active/inactive
-            while instance Active/Inactive.
-            @return: action
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 November 2020 .
-            Task_id: 167723
+        """
+        This method is used to open a wizard to display the information related to how much data will active/archive
+        while instance is actived/archived.
+        @return: action
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 November 2020 .
+        Task_id: 167723
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         view = self.env.ref('woo_commerce_ept.view_inactive_woo_instance')
         return {
@@ -787,6 +875,7 @@ class WooInstanceEpt(models.Model):
         Create pricelist and set that to instance.
         :param vals: Dict of instance
         :return: instance
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if vals.get("woo_host").endswith('/'):
             vals["woo_host"] = vals.get("woo_host").rstrip('/')
@@ -809,6 +898,7 @@ class WooInstanceEpt(models.Model):
         :return: pricelist
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 18-11-2019.
         :Task id: 156886
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         vals = {
             'name': "Woo {} Pricelist".format(self.name),
@@ -821,6 +911,7 @@ class WooInstanceEpt(models.Model):
         """
         Creates new sales team for Woo instance.
         @author: Maulik Barad on Date 09-Jan-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         vals = {'name': self.name, 'use_quotations': True}
         return self.env['crm.team'].create(vals)
@@ -831,6 +922,7 @@ class WooInstanceEpt(models.Model):
         :return: Boolean
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 18-11-2019.
         :Task id: 156886
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         currency = self.woo_get_currency()
         self.woo_currency_id = currency and currency.id or self.env.user.currency_id.id or False
@@ -842,6 +934,7 @@ class WooInstanceEpt(models.Model):
         @param message: Message to add in log line as per the issue.
         @return: Dictionary of log line data.
         @author: Maulik Barad on Date 30-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id("woo.instance.ept")
@@ -852,6 +945,7 @@ class WooInstanceEpt(models.Model):
         This method prepares vals for creating log book.
         @param log_line_ids: Ids of log lines.
         @author: Maulik Barad on Date 30-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         return {'type': 'import', 'module': 'woocommerce_ept', 'woo_instance_id': self.id, 'active': True,
                 'log_lines': [(6, 0, log_line_ids)]}
@@ -862,6 +956,7 @@ class WooInstanceEpt(models.Model):
         @param currency_code: Currency code got from WooCommerce store.
         @return: Record of currency if found.
         @author: Maulik Barad on Date 30-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         currency_obj = self.env['res.currency']
 
@@ -872,7 +967,7 @@ class WooInstanceEpt(models.Model):
             currency.active = True
         if not currency:
             raise UserError(_("Currency %s not found in odoo.\nPlease make sure currency record is created for %s and"
-                              "is in active state.") % (currency_code, currency_code))
+                              " is in active state.") % (currency_code, currency_code))
         return currency
 
     @api.model
@@ -882,6 +977,7 @@ class WooInstanceEpt(models.Model):
         :return: currency
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 18-11-2019.
         :Task id: 156886
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_obj = self.env["common.log.book.ept"]
         log_line_ids = []
@@ -911,6 +1007,7 @@ class WooInstanceEpt(models.Model):
         :return: List
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 18-11-2019.
         :Task id: 156886
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         log_line_id = []
 
@@ -946,6 +1043,7 @@ class WooInstanceEpt(models.Model):
         """
         Creates connection for given instance of WooCommerce.
         @author: Maulik Barad on Date 09-Jan-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         host = self.woo_host
         consumer_key = self.woo_consumer_key
@@ -958,7 +1056,7 @@ class WooInstanceEpt(models.Model):
         """
         Performs needed operations for instance after its creation.
         @author: Maulik Barad on Date 09-Jan-2019.
-        Migration done by Haresh Mori @ Emipro on date 6 October 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         wc_api = self.woo_connect()
         if self.is_export_update_images:
@@ -973,10 +1071,9 @@ class WooInstanceEpt(models.Model):
             raise UserError(_("Response is not in proper format :: %s") % response)
         if response.status_code != 200:
             raise UserError(_("%s\n%s") % (response.status_code, response.reason))
-        """
-        When there is case of full discount, customer do not need to pay or select any payment method for that order.
-        So, creating this type of payment method for applying the auto workflow and picking policy in order.
-        """
+
+        # When there is case of full discount, customer do not need to pay or select any payment method for that order.
+        # So, creating this type of payment method for applying the auto workflow and picking policy in order.
         self.prepare_payment_methods()
         return True
 
@@ -985,6 +1082,7 @@ class WooInstanceEpt(models.Model):
         This method is used to prepare payment methods and financial status, while creating instance and activating
         instance.
         @author: Maulik Barad on Date 29-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         payment_gateway_obj = self.env['woo.payment.gateway']
         no_payment_method = payment_gateway_obj.with_context(active_test=False).search(
@@ -1010,13 +1108,11 @@ class WooInstanceEpt(models.Model):
         @param password: WooCommerce admin password.
         @param host: WooCommerce host. By default, instance's host can be used.
         @author: Maulik Barad on Date 29-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if not host:
             host = self.woo_host
-        try:
-            client = base.Client("%s/xmlrpc.php" % host, username, password)
-        except Exception as error:
-            raise UserError(_("%s") % error)
+        client = base.Client("%s/xmlrpc.php" % host, username, password)
         try:
             client.call(media.UploadFile(""))
         except InvalidCredentialsError as error:
@@ -1026,11 +1122,13 @@ class WooInstanceEpt(models.Model):
         return True
 
     def reset_woo_credentials(self):
-        """ This method call from the button in the instance view and it used for taken values of username and password.
-            @param : self
-            @return: action(Redirect to form view)
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 27 August 2020.
-            Task_id:165888
+        """
+        This method call from the button in the instance view and it used for taken values of username and password.
+        @param : self
+        @return: action(Redirect to form view)
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 27 August 2020.
+        Task_id:165888
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res_config_woo_instance_obj = self.env['res.config.woo.instance']
         form_view_id = self.env.ref('woo_commerce_ept.view_set_woo_credential').id
@@ -1059,7 +1157,7 @@ class WooInstanceEpt(models.Model):
         Creates financial status for all payment methods of Woo instance.
         @param financial_status: Status as paid or not paid.
         @return: Boolean
-        Migration done by Haresh Mori @ Emipro on date 6 October 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         financial_status_obj = self.env["woo.sale.auto.workflow.configuration"]
         auto_workflow_record = self.env.ref("common_connector_library.automatic_validation_ept")
@@ -1088,6 +1186,7 @@ class WooInstanceEpt(models.Model):
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 16-11-2019.
         :Task id: 156886
         :return: action
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         action = self.env.ref('base.ir_cron_act').read()[0]
         action['domain'] = [('name', 'ilike', self.name), ("active", "=", True)]
@@ -1097,6 +1196,7 @@ class WooInstanceEpt(models.Model):
         """
         This method refreshes all webhooks for current instance.
         @author: Maulik Barad on Date 19-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if not webhooks:
             webhooks = self.webhook_ids
@@ -1110,6 +1210,7 @@ class WooInstanceEpt(models.Model):
         Creates or activates all product related webhooks, when it is True.
         Pauses all product related webhooks, when it is False.
         @author: Maulik Barad on Date 06-Jan-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         topic_list = ["product.updated", "product.deleted", "product.restored"]
         self.configure_webhooks(topic_list)
@@ -1120,6 +1221,7 @@ class WooInstanceEpt(models.Model):
         Creates or activates all customer related webhooks, when it is True.
         Pauses all product related webhooks, when it is False.
         @author: Maulik Barad on Date 06-Jan-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         topic_list = ["customer.updated", "customer.deleted"]
         self.configure_webhooks(topic_list)
@@ -1130,6 +1232,7 @@ class WooInstanceEpt(models.Model):
         Creates or activates all order related webhooks, when it is True.
         Pauses all product related webhooks, when it is False.
         @author: Maulik Barad on Date 06-Jan-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         topic_list = ["order.updated", "order.deleted"]
         self.configure_webhooks(topic_list)
@@ -1140,6 +1243,7 @@ class WooInstanceEpt(models.Model):
         Creates or activates all coupon related webhooks, when it is True.
         Pauses all product related webhooks, when it is False.
         @author: Maulik Barad on Date 06-Jan-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         topic_list = ["coupon.updated", "coupon.deleted", "coupon.restored"]
         self.configure_webhooks(topic_list)
@@ -1149,6 +1253,7 @@ class WooInstanceEpt(models.Model):
         """
         Creates or activates all webhooks as per topic list, when it is True.
         Pauses all product related webhooks, when it is False.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         webhook_obj = self.env["woo.webhook.ept"]
 
@@ -1176,10 +1281,11 @@ class WooInstanceEpt(models.Model):
 
     def search_woo_instance(self):
         """
-            Usage : Search Woo Instance
-            @Task:  166918 - Odoo v14 : Dashboard analysis
-            @author: Dipak Gogiya, 23/09/2020
-            :return: woo.instance.ept()
+        Usage : Search Woo Instance
+        @Task:  166918 - Odoo v14 : Dashboard analysis
+        @author: Dipak Gogiya, 23/09/2020
+        :return: woo.instance.ept()
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         company = self.env.company or self.env.user.company_id
         instance = self.search([('is_instance_create_from_onboarding_panel', '=', True),
@@ -1197,6 +1303,7 @@ class WooInstanceEpt(models.Model):
         @param cron_name: External ID of the Cron.
         @return: Interval time in seconds.
         @author: Maulik Barad on Date 25-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         process_queue_cron = self.env.ref(cron_name, False)
         if not process_queue_cron:

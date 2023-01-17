@@ -19,7 +19,7 @@ class WooCustomerDataQueueLineEpt(models.Model):
 
     woo_instance_id = fields.Many2one('woo.instance.ept', string='Instance',
                                       help="Determines that queue line associated with particular instance")
-    state = fields.Selection([('draft', 'Draft'), ('failed', 'Failed'), ("cancelled", "Cancelled"), ('done', 'Done')],
+    state = fields.Selection([('draft', 'Draft'), ('failed', 'Failed'), ("cancel", "Cancelled"), ('done', 'Done')],
                              default='draft')
     last_process_date = fields.Datetime(readonly=True)
     woo_synced_data = fields.Char(string='WooCommerce Synced Data')
@@ -33,6 +33,7 @@ class WooCustomerDataQueueLineEpt(models.Model):
         """
         This method process the queue lines and creates partner and addresses.
         @author: Maulik Barad on Date 11-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id("res.partner")
@@ -57,10 +58,16 @@ class WooCustomerDataQueueLineEpt(models.Model):
                 parent_partner = partner_obj.woo_create_contact_customer(customer_val, instance)
             if parent_partner:
                 partner_obj.woo_create_or_update_customer(customer_val.get('billing'), instance,
-                                                                            parent_partner,'invoice')
+                                                          parent_partner, 'invoice')
                 partner_obj.woo_create_or_update_customer(customer_val.get('shipping'), instance, parent_partner,
                                                           'delivery')
                 customer_queue_line.write({'state': 'done', 'last_process_date': datetime.now()})
+                # WooCommerce Meta Mapping for import Customers
+                woo_operation = 'import_customer'
+                if instance.meta_mapping_ids.filtered(
+                        lambda meta: meta.woo_operation == woo_operation):
+                    instance.with_context(woo_operation=woo_operation).meta_field_mapping(customer_val, "import",
+                                                                                          parent_partner)
             else:
                 customer_queue_line.write({'state': 'failed', 'last_process_date': datetime.now()})
                 log_line_id = common_log_line_obj.create({
@@ -81,6 +88,7 @@ class WooCustomerDataQueueLineEpt(models.Model):
         @return: True
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 29 August 2020 .
         Task_id: 165956
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         customer_queue_ids = []
         woo_customer_data_queue_obj = self.env["woo.customer.data.queue.ept"]
@@ -133,6 +141,7 @@ class WooCustomerDataQueueLineEpt(models.Model):
         This method is used to process the queue lines from Webhook, manually from form view or after searching from
         auto process cron.
         @author: Maulik Barad on Date 27-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         self.process_woo_customer_queue_lines()
         queues = self.queue_id
@@ -145,7 +154,7 @@ class WooCustomerDataQueueLineEpt(models.Model):
         @param : self, queues
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 31 August 2020 .
         Task_id: 165956
-        @change by Maulik Barad on Date 11-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_obj = self.env["common.log.book.ept"]
         common_log_line_obj = self.env["common.log.lines.ept"]

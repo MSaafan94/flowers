@@ -5,7 +5,12 @@
         <field name="name">WooCommerce Customer Queue Data</field>
         <field name="model">woo.customer.data.queue.ept</field>
         <field name="arch" type="xml">
-            <tree create="0" delete="0" default_order="id desc" decoration-primary="is_process_queue==True" sample="1">
+            <tree create="0" delete="0" default_order="id desc" decoration-primary="is_process_queue==True" sample="1"
+                  js_class="queue_line_ept_dashboard">
+                <header>
+                    <button name="%(woo_commerce_ept.action_customer_import_process_manual)d"
+                            string="Process Queue" type="action"/>
+                </header>
                 <field name="name"/>
                 <field name="woo_instance_id"/>
                 <field name="create_date"/>
@@ -47,31 +52,33 @@
                 </div>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button class="oe_stat_button" icon="fa-users">
+                        <button class="oe_stat_button" icon="fa-users" disabled="1">
                             <field name="customers_count" widget="statinfo" string="Total Customers"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-info">
+                        <button class="oe_stat_button" icon="fa-info" disabled="1">
                             <field name="draft_state_count" widget="statinfo" string="Draft"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-times"
+                        <button class="oe_stat_button" icon="fa-times" disabled="1"
                                 attrs="{'invisible':[('state', 'in', ['partial'])]}">
                             <field name="failed_state_count" widget="statinfo" string="Failed"/>
                         </button>
-                        <button class="oe_stat_button" attrs="{'invisible':[('state', 'not in', ['partial'])]}">
+                        <button class="oe_stat_button" attrs="{'invisible':[('state', 'not in', ['partial'])]}"
+                                disabled="1">
                             <span class="fa-stack fa-lg"
                                   style="padding-top: 6px; margin-left:-3px; margin-top:2PX; font-size: 22px; color:#ff0000;">
                                 <i class="fa fa-times-circle" style="margin-left:18px;" title="circle"/>
                             </span>
                             <field name="failed_state_count" widget="statinfo" string="Failed"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-trash">
+                        <button class="oe_stat_button" icon="fa-trash" disabled="1">
                             <field name="cancelled_line_count" widget="statinfo" string="Cancelled"/>
                         </button>
                         <button attrs="{'invisible':[('state', 'in', ['done'])]}" class="oe_stat_button"
-                                icon="fa-check">
+                                icon="fa-check" disabled="1">
                             <field name="done_state_count" widget="statinfo" string="Done"/>
                         </button>
-                        <button class="oe_stat_button" attrs="{'invisible':[('state', 'not in', ['done'])]}">
+                        <button class="oe_stat_button" attrs="{'invisible':[('state', 'not in', ['done'])]}"
+                                disabled="1">
                             <span class="fa-stack fa-lg" style="padding-top: 6px; margin-left:10px; color:#00ff00;">
                                 <i class="fa fa-check fa-stack-1x" style="margin-left:4px;" title="stack"/>
                                 <i class="fa fa-check fa-inverse fa-stack-1x" style="margin-left:-3px;"
@@ -174,6 +181,6 @@
             </div>
         </field>
     </record>
-    <menuitem id="woo_data_menu" name="Customers" parent="woo_commerce_ept.menu_woo_queue_log" sequence="3"
+    <menuitem id="woo_data_menu" name="Customers Queue" parent="woo_commerce_ept.menu_woo_logs" sequence="4"
               action="woo_customer_data_queue_ept_action"/>
 </odoo>

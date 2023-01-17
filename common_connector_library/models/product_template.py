@@ -6,17 +6,16 @@ from odoo import models, fields, api
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
-    product_brand_id = fields.Many2one('common.product.brand.ept', string="Product Brand",
-                                       help='Select a brand for this product.')
     ept_image_ids = fields.One2many('common.product.image.ept', 'template_id', string='Product Images')
 
-    def prepare_common_image_vals(self, vals):
+    def prepare_template_common_image_vals(self, vals):
         """
         Prepares vals for creating common product image record.
         @param vals: Vals having image data.
         @param product: Record of Product.
         @return:Dictionary
         @author: Maulik Barad on Date 17-Oct-2020.
+        Migration done by Haresh Mori on September 2021
         """
         image_vals = {"sequence": 0,
                       "image": vals.get("image_1920", False),
@@ -29,11 +28,11 @@ class ProductTemplate(models.Model):
         """
         Inherited for adding the main image in common images.
         @author: Maulik Barad on Date 13-Dec-2019.
-        Migration done by twinkalc August 2020
+        Migration done by Haresh Mori on September 2021
         """
         res = super(ProductTemplate, self).create(vals)
         if vals.get("image_1920", False) and res:
-            image_vals = res.prepare_common_image_vals(vals)
+            image_vals = res.prepare_template_common_image_vals(vals)
             self.env["common.product.image.ept"].with_context(main_image=True).create(image_vals)
         return res
 
@@ -41,13 +40,13 @@ class ProductTemplate(models.Model):
         """
         Inherited for adding the main image in common images.
         @author: Maulik Barad on Date 13-Dec-2019.
-        Migration done by twinkalc August 2020
+        Migration done by Haresh Mori on September 2021
         """
         res = super(ProductTemplate, self).write(vals)
         if vals.get("image_1920", False) and self:
             common_product_image_obj = self.env["common.product.image.ept"]
             for record in self:
                 if vals.get("image_1920"):
-                    image_vals = record.prepare_common_image_vals(vals)
+                    image_vals = record.prepare_template_common_image_vals(vals)
                     common_product_image_obj.with_context(main_image=True).create(image_vals)
         return res

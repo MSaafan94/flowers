@@ -35,6 +35,7 @@ class WooCouponDataQueueEpt(models.Model):
         """
         Computes coupon queue lines by different states.
         @author: Nilesh Parmar on Date 28 Dec 2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for record in self:
             queue_lines = record.coupon_data_queue_line_ids
@@ -42,13 +43,14 @@ class WooCouponDataQueueEpt(models.Model):
             record.draft_line_count = len(queue_lines.filtered(lambda x: x.state == "draft"))
             record.failed_line_count = len(queue_lines.filtered(lambda x: x.state == "failed"))
             record.done_line_count = len(queue_lines.filtered(lambda x: x.state == "done"))
-            record.cancelled_line_count = len(queue_lines.filtered(lambda x: x.state == "cancelled"))
+            record.cancelled_line_count = len(queue_lines.filtered(lambda x: x.state == "cancel"))
 
     @api.depends("coupon_data_queue_line_ids.state")
     def _compute_state(self):
         """
         Computes state of coupon queue from queue lines' state.
         @author: Nilesh Parmar on Date 28 Dec 2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for record in self:
             if (record.done_line_count + record.cancelled_line_count) == record.total_line_count:
@@ -67,6 +69,7 @@ class WooCouponDataQueueEpt(models.Model):
         @param vals: Dictionary of values.
         @return: New created record.
         @author: Nilesh Parmar on Date 28 Dec 2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         ir_sequence_obj = self.env['ir.sequence']
         record_name = "/"
@@ -81,6 +84,7 @@ class WooCouponDataQueueEpt(models.Model):
         Creates queue lines from imported JSON data of Coupons.
         @param coupons: coupons in JSON format.
         @author: Nilesh Parmar on Date 28 Dec 2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         coupon_data_queue_line_obj = self.env["woo.coupon.data.queue.line.ept"]
         vals_list = []
@@ -97,9 +101,10 @@ class WooCouponDataQueueEpt(models.Model):
         """
         Cancels all draft and failed queue lines.
         @author: Nilesh Parmar on Date 28 Dec 2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         need_to_cancel_queue_lines = self.coupon_data_queue_line_ids.filtered(lambda x: x.state in ["draft", "failed"])
-        need_to_cancel_queue_lines.write({"state": "cancelled"})
+        need_to_cancel_queue_lines.write({"state": "cancel"})
         return True
 
     def open_log_book(self):
@@ -107,6 +112,7 @@ class WooCouponDataQueueEpt(models.Model):
         Returns action for opening the related coupon.
         @author: Nilesh Parmar on Date 31 Dec 2019.
         @return: Action to open coupon record.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         return {
             "name": "Logs",
@@ -122,7 +128,7 @@ class WooCouponDataQueueEpt(models.Model):
         This method used to create a coupon queue from the coupon webhook response and also
         process the queue line.
         @author: Haresh Mori on Date 2-Jan-2020.
-        Migration done by Haresh Mori @ Emipro on date 25 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_coupon_obj = self.env["woo.coupons.ept"]
         coupon_data_queue_obj = self.env["woo.coupon.data.queue.ept"]
@@ -139,3 +145,8 @@ class WooCouponDataQueueEpt(models.Model):
         elif not coupon_data_queue:
             woo_coupon_obj.create_woo_coupon_data_queue(instance, [result], created_by="webhook")
         return True
+
+    @api.model
+    def retrieve_dashboard(self, *args, **kwargs):
+        dashboard = self.env['queue.line.dashboard']
+        return dashboard.get_data(table='woo.coupon.data.queue.line.ept')

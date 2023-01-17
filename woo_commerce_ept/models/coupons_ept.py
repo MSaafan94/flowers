@@ -70,7 +70,7 @@ class WooCouponEpt(models.Model):
     active = fields.Boolean(default=True)
     _sql_constraints = [('code_unique', 'unique(code,woo_instance_id)', "Code already exists. Code must be unique!")]
 
-    def create_woo_coupon_log_lines(self, message, common_log_book_id, queue_line=False):
+    def create_woo_coupon_log_lines(self, message, common_log_book_id, queue_line=None):
         """
         Creates log line for the failed queue line.
         @param common_log_book_id:
@@ -78,6 +78,7 @@ class WooCouponEpt(models.Model):
         @param message: Cause of failure.
         @return: Created log line.
         @author: Nilesh Parmar
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         log_line_obj = self.env["common.log.lines.ept"]
         log_line_vals = {"message": message,
@@ -98,6 +99,7 @@ class WooCouponEpt(models.Model):
         @param common_log_book: Record of Log Book.
         @return: Log line if issue found.
         @author: Maulik Barad on Date 10-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         if not isinstance(response, requests.models.Response):
@@ -121,6 +123,7 @@ class WooCouponEpt(models.Model):
         @param coupon: Data of a coupon.
         @param instance: Record of instance.
         @author: Maulik Barad on Date 10-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_categ_ept_obj = self.env["woo.product.categ.ept"]
         woo_product_categ = woo_product_categ_ept_obj.search([("woo_categ_id", "in", coupon.get("product_categories")),
@@ -339,7 +342,7 @@ class WooCouponEpt(models.Model):
                 results += self.woo_import_all_coupons(wc_api, page, common_log_book_id, model_id)
         if not results:
             _logger.info("Coupons data not found from woo")
-            return True
+            return False
         coupon_queue = self.create_woo_coupon_data_queue(instance, results)
 
         return coupon_queue

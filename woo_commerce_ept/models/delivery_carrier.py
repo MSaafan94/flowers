@@ -7,6 +7,7 @@ class DeliveryCarrier(models.Model):
     """
     Inherited to add the woocommerce carriers.
     @author: Maulik Barad on Date 12-Nov-2019.
+    Migrated by Maulik Barad on Date 07-Oct-2021.
     """
     _inherit = "delivery.carrier"
 

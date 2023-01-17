@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 # See LICENSE file for full copyright and licensing details.
-import logging
 from odoo import fields, models, api
 
-_logger = logging.getLogger(__name__)
 
 class AccountFiscalPosition(models.Model):
     _inherit = 'account.fiscal.position'
@@ -16,11 +14,7 @@ class AccountFiscalPosition(models.Model):
     def _get_fpos_by_region(self, country_id=False, state_id=False, zipcode=False, vat_required=False):
         """
         Inherited this method for selecting fiscal position based on warehouse (origin country).
-        @param country_id:
-        @param state_id:
-        @param zipcode:
-        @param vat_required:
-        @return:
+        Migration done by Haresh Mori on September 2021
         """
         origin_country_id = self._context.get('origin_country_ept', False)
         if not origin_country_id:
@@ -42,6 +36,7 @@ class AccountFiscalPosition(models.Model):
         :param zipcode: delivery zip code
         :param vat_required: True / False
         :return: fpos object
+        Migration done by Haresh Mori on September 2021
         """
         if not country_id:
             return False
@@ -61,7 +56,8 @@ class AccountFiscalPosition(models.Model):
         domain_group = base_domain + [('country_group_id.country_ids', '=', country_id)]
         # Build domain to search records with exact matching criteria
         fpos = self.search(domain_country + state_domain + zip_domain, limit=1)
-        # return records that fit the most the criteria, and fallback on less specific fiscal positions if any can be found
+        # return records that fit the most the criteria, and fallback on less specific fiscal positions if any can be
+        # found
         if not fpos and state_id:
             fpos = self.search(domain_country + null_state_dom + zip_domain, limit=1)
         if not fpos and zipcode:

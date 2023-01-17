@@ -99,16 +99,17 @@ odoo.define('graph_widget_ept.graph', function (require) {
                 var labels = this.graph_data.values.map(function (pt) {
                     return pt.x;
                 });
-                var borderColor = this.graph_data.is_sample_data ? '#0068ff' : '#0068ff';
+                var borderColor = '#0068ff';
 
                 var gradientColor = context.createLinearGradient(0, 0, 0, 450);
                 gradientColor.addColorStop(0.10, 'rgba(0, 155, 255, 0.25)');
                 gradientColor.addColorStop(0.25, 'rgba(255, 255, 255, 0.25)');
+                var backgroundColor;
                 if(gradientColor){
-                    var backgroundColor = gradientColor
+                    backgroundColor = gradientColor
                 }
                 else{
-                    var backgroundColor = this.graph_data.is_sample_data ? '#ebebeb' : '#dcd0d9';
+                    backgroundColor = this.graph_data.is_sample_data ? '#ebebeb' : '#dcd0d9';
                 }
                 return {
                     type: 'line',

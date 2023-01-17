@@ -37,7 +37,7 @@
         <field name="name">woo categs</field>
         <field name="model">woo.product.categ.ept</field>
         <field name="arch" type="xml">
-            <tree>
+            <tree sample="1">
                 <field name="name"/>
                 <field name="slug"/>
                 <field name="parent_id"/>
@@ -84,7 +84,7 @@
         <field name="domain">[('woo_instance_id','=',active_id)]</field>
     </record>
 
-    <menuitem action="product_categ_action_ept" id="menu_product_categ" name="Categories"
-              parent="woo_commerce_ept.woo_catalog" sequence="2"/>
+    <menuitem action="product_categ_action_ept" id="menu_product_categ" name="Product Categories"
+              parent="woo_commerce_ept.menu_item_parent_woo_products_ept" sequence="3"/>
 
 </odoo>

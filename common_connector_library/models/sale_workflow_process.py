@@ -11,7 +11,7 @@ class SaleWorkflowProcess(models.Model):
     def _default_journal(self):
         """
         It will return sales journal of company passed in context or user's company.
-        Migration done by twinkalc August 2020.
+        Migration done by Haresh Mori on September 2021
         """
         account_journal_obj = self.env['account.journal']
         company_id = self._context.get('company_id', self.env.company.id)
@@ -65,12 +65,11 @@ class SaleWorkflowProcess(models.Model):
     @api.model
     def auto_workflow_process_ept(self, auto_workflow_process_id=False, order_ids=[]):
         """
-        Added comment by Udit
         This method will find draft sale orders which are not having invoices yet, confirmed it and done the payment
         according to the auto invoice workflow configured in sale order.
         :param auto_workflow_process_id: auto workflow process id
         :param order_ids: ids of sale orders
-        Migration done by twinkalc August 2020
+        Migration done by Haresh Mori on September 2021
         """
         sale_order_obj = self.env['sale.order']
         workflow_process_obj = self.env['sale.workflow.process.ept']
@@ -94,20 +93,19 @@ class SaleWorkflowProcess(models.Model):
         """
         This method is for processing the shipped orders.
         :param orders: list of order objects
-        :return: True
-        Migration done by twinkalc August 2020
+        Migration done by Haresh Mori on September 2021
         """
         self.ensure_one()
-        module_obj = self.env['ir.module.module']
         stock_location_obj = self.env["stock.location"]
+        product_product_obj = self.env["product.product"]
 
-        mrp_module = module_obj.sudo().search([('name', '=', 'mrp'), ('state', '=', 'installed')])
+        mrp_module = product_product_obj.search_installed_module_ept('mrp')
         customer_location = stock_location_obj.search([("usage", "=", "customer")], limit=1)
 
         shipped_orders = orders.filtered(lambda x: x.order_line)
 
         for order in shipped_orders:
-            order.action_confirm()
+            order.state = 'sale'
             order.auto_shipped_order_ept(customer_location, mrp_module)
 
         shipped_orders.validate_and_paid_invoices_ept(self)

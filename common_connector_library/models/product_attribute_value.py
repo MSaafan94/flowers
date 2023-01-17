@@ -15,11 +15,12 @@ class ProductAttributeValue(models.Model):
         :param attribute_id:id of attribute
         :param auto_create: True or False
         :return: attribute values
+        Migration done by Haresh Mori on September 2021
         """
-        attribute_values = self.search([('name', '=', name), ('attribute_id', '=', attribute_id)])
+        attribute_values = self.search([('name', '=', name), ('attribute_id', '=', attribute_id)], limit=1)
 
         if not attribute_values:
-            attribute_values = self.search([('name', '=ilike', name), ('attribute_id', '=', attribute_id)])
+            attribute_values = self.search([('name', '=ilike', name), ('attribute_id', '=', attribute_id)], limit=1)
 
         if not attribute_values and auto_create:
             return self.create(({'name': name, 'attribute_id': attribute_id}))

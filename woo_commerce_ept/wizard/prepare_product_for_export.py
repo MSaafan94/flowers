@@ -2,17 +2,18 @@
 # See LICENSE file for full copyright and licensing details.
 import base64
 import logging
-
+import io
 from csv import DictWriter
 from datetime import datetime
 from io import StringIO
 from _collections import OrderedDict
-
+from odoo.tools.misc import xlsxwriter
 from odoo import models, fields, _
 from odoo.exceptions import UserError
 from odoo.tools.mimetypes import guess_mimetype
 
 _logger = logging.getLogger("WooCommerce")
+
 
 class PrepareProductForExport(models.TransientModel):
     """
@@ -22,8 +23,9 @@ class PrepareProductForExport(models.TransientModel):
     _name = "woo.prepare.product.for.export.ept"
     _description = "WooCommerce Prepare Product For Export"
 
-    export_method = fields.Selection([("csv", "Export in CSV file"),
-                                      ("direct", "Export in WooCommerce Layer")], default="csv")
+    export_method = fields.Selection(
+        [("direct", "Export in WooCommerce Layer"), ("csv", "Export in CSV file"), ("xlsx", "Export in XLSX file")],
+        default="direct")
     woo_instance_id = fields.Many2one("woo.instance.ept")
     file_name = fields.Char(help="Name of CSV file.")
     csv_data = fields.Binary('CSV File', readonly=True, attachment=False)
@@ -32,28 +34,105 @@ class PrepareProductForExport(models.TransientModel):
         """
         This method is used to export products in Woo layer as per seleted product in Odoo product layer.
         If "direct" is selected, then it will direct export product into Woo layer.
-        If "csv" is selected, then it will export product data in CSV file, if user want to do some
+        If "xlsx/csv" is selected, then it will export product data in CSV / xlsx file, if user want to do some
         modification in name, description, etc. before importing into Woocommmerce.
-        Migration done by Haresh Mori @ Emipro on date 14 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         product_template_obj = self.env["product.template"]
         _logger.info("Starting product exporting via %s method...", self.export_method)
 
         active_template_ids = self._context.get("active_ids", [])
         templates = product_template_obj.browse(active_template_ids)
-        product_templates = templates.filtered(lambda template: template.type == "product")
+        product_templates = templates.filtered(lambda template: template.detailed_type == "product")
         if not product_templates:
             raise UserError(_("It seems like selected products are not Storable products."))
 
         if self.export_method == "direct":
             return self.export_direct_in_woo(product_templates)
-        else:
-            return self.export_csv_file(product_templates)
+        return self.export_product_file_create_in_woo(product_templates)
+
+    def export_product_file_create_in_woo(self, odoo_template_ids):
+        """
+        Create and download CSV/XLSX file for export product in WooCommerce.
+        :param variants: Odoo product product object
+        """
+        data = str()
+        templates_val = []
+        if self.export_method:
+            for odoo_template in odoo_template_ids:
+                if len(odoo_template.product_variant_ids.ids) == 1 and not odoo_template.default_code:
+                    continue
+                position = 0
+                for product in odoo_template.product_variant_ids.filtered(lambda variant: variant.default_code):
+                    val = self.prepare_row_for_csv(odoo_template, product, position)
+                    templates_val.append(val)
+                    position = 1
+
+            if not templates_val:
+                raise UserError(
+                    _("No data found to be exported.\n\nPossible Reasons:\n - SKU(s) are not set properly."))
+            # Based on customer's selected file format apply to call method
+            method_name = "_export_{}".format(self.export_method)
+            if hasattr(self, method_name):
+                data = getattr(self, method_name)(templates_val)
+        self.write({'csv_data': data.get('file')})
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/web/content/?model=woo.prepare.product.for.export.ept&'
+                   'field=csv_data&download=true&id={}&filename={}'.format(self.id, data.get('file_name')),
+            'target': 'self',
+        }
+
+    def _export_csv(self, products):
+        """
+        This method use for export selected product in CSV file for Map product
+        Develop by : Meera Sidapara
+        Date : 02/12/2021
+        :param products: Selected product listing ids
+        :return: selected product data and file name
+        """
+        buffer = StringIO()
+        csv_writer = DictWriter(buffer, list(products[0].keys()), delimiter=',')
+        csv_writer.writer.writerow(list(products[0].keys()))
+        csv_writer.writerows(products)
+        buffer.seek(0)
+        file_data = buffer.read().encode("utf-8")
+        b_data = base64.b64encode(file_data)
+        filename = 'woo_product_export_{}_{}.csv'.format(self.id, datetime.now().strftime(
+            "%m_%d_%Y-%H_%M_%S"))
+        return {'file': b_data, 'file_name': filename}
+
+    def _export_xlsx(self, products):
+        """
+        This method use for export selected product in XLSX file for Map product
+        Develop by : Meera Sidapara
+        Date : 02/12/2021
+        :param products: Selected product listing ids
+        :return: selected product data and file name
+        """
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Map Product')
+        header = list(products[0].keys())
+        header_format = workbook.add_format({'bold': True, 'font_size': 10})
+        general_format = workbook.add_format({'font_size': 10})
+        worksheet.write_row(0, 0, header, header_format)
+        index = 0
+        for product in products:
+            index += 1
+            worksheet.write_row(index, 0, list(product.values()), general_format)
+        workbook.close()
+        b_data = base64.b64encode(output.getvalue())
+        filename = 'woo_product_export_{}_{}.xlsx'.format(self.id, datetime.now().strftime(
+            "%m_%d_%Y-%H_%M_%S"))
+        return {'file': b_data, 'file_name': filename}
 
     def export_direct_in_woo(self, product_templates):
-        """ This method use to create/update Woo layer products.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 14 September 2020 .
-            Task_id: 165896
+        """
+        This method use to create/update Woo layer products.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 14 September 2020 .
+        Task_id: 165896
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_template_id = False
         woo_product_obj = self.env["woo.product.product.ept"]
@@ -68,7 +147,7 @@ class PrepareProductForExport(models.TransientModel):
             woo_template = self.create_update_woo_template(variant, woo_instance, woo_template_id, woo_category_dict)
 
             # For add template images in layer.
-            if isinstance(woo_template,int):
+            if isinstance(woo_template, int):
                 woo_template = woo_template_obj.browse(woo_template)
 
             self.create_woo_template_images(woo_template)
@@ -88,15 +167,17 @@ class PrepareProductForExport(models.TransientModel):
         return True
 
     def create_update_woo_template(self, variant, woo_instance, woo_template_id, woo_category_dict):
-        """ This method is used create/update woo template.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
-            Task_id: 168189 - Woo Commerce Wizard py files refactor
+        """
+        This method is used create/update woo template.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
+        Task_id: 168189 - Woo Commerce Wizard py files refactor
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_template_obj = self.env["woo.product.template.ept"]
         product_template = variant.product_tmpl_id
 
         if product_template.attribute_line_ids and len(
-            product_template.attribute_line_ids.filtered(lambda x: x.attribute_id.create_variant == "always")) > 0:
+                product_template.attribute_line_ids.filtered(lambda x: x.attribute_id.create_variant == "always")) > 0:
             product_type = 'variable'
         else:
             product_type = 'simple'
@@ -123,9 +204,11 @@ class PrepareProductForExport(models.TransientModel):
         return woo_template_id
 
     def prepare_woo_template_layer_vals(self, woo_instance, product_template, product_type):
-        """ This method is used to prepare a vals for the woo product template.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
-            Task_id: 168189 - Woo Commerce Wizard py files refactor
+        """
+        This method is used to prepare a vals for the woo product template.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
+        Task_id: 168189 - Woo Commerce Wizard py files refactor
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         ir_config_parameter_obj = self.env["ir.config_parameter"]
         woo_template_vals = (
@@ -143,9 +226,11 @@ class PrepareProductForExport(models.TransientModel):
         return woo_template_vals
 
     def prepare_variant_vals_for_woo_layer(self, woo_instance, variant, woo_template):
-        """ This method is used to prepare variant vals for the create/update woo layer variant.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
-            Task_id: 168189 - Woo Commerce Wizard py files refactor
+        """
+        This method is used to prepare variant vals for the create/update woo layer variant.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
+        Task_id: 168189 - Woo Commerce Wizard py files refactor
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_variant_vals = ({
             'woo_instance_id': woo_instance.id,
@@ -156,55 +241,14 @@ class PrepareProductForExport(models.TransientModel):
         })
         return woo_variant_vals
 
-    def export_csv_file(self, odoo_template_ids):
-        """
-        This method is used for export the odoo products in csv file.
-        @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
-        @return: CSV file.
-        Migration done by Haresh Mori @ Emipro on date 14 September 2020 .
-        """
-        buffer = StringIO()
-        delimiter = ','
-        field_names = ['template_name', 'product_name', 'product_default_code',
-                       'woo_product_default_code', 'product_description', 'sale_description',
-                       'PRODUCT_TEMPLATE_ID', 'PRODUCT_ID', 'CATEGORY_ID']
-        csv_writer = DictWriter(buffer, field_names, delimiter=delimiter)
-        csv_writer.writer.writerow(field_names)
-        rows = []
-        for odoo_template in odoo_template_ids:
-            if len(odoo_template.product_variant_ids.ids) == 1 and not odoo_template.default_code:
-                continue
-            position = 0
-            for product in odoo_template.product_variant_ids.filtered(lambda variant: variant.default_code != False):
-                row = self.prepare_row_for_csv(odoo_template, product, position)
-                rows.append(row)
-                position = 1
-        if not rows:
-            raise UserError(_('No data found to be exported.\n\nPossible Reasons:\n   - SKU(s) are not set properly.'))
-        csv_writer.writerows(rows)
-        buffer.seek(0)
-        file_data = buffer.read().encode()
-        self.write({
-            'csv_data': base64.encodebytes(file_data),
-            'file_name': 'export_product_',
-        })
-
-        return {
-            'name': 'CSV',
-            'type': 'ir.actions.act_url',
-            'url': "web/content/?model=woo.prepare.product.for.export.ept&id=" + str(
-                self.id) + "&filename_field=file_name&field=csv_data&download=true&filename"
-                           "=%s.csv" % (
-                       self.file_name + str(datetime.now().strftime("%d/%m/%Y:%H:%M:%S"))),
-            'target': 'self',
-        }
-
     def prepare_row_for_csv(self, odoo_template, product, position):
-        """ This method use to prepare a template data row for export data in CSV file.
-            @param : self, odoo_template, product, position
-            @return: row
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 14 September 2020 .
-            Task_id: 165896
+        """
+        This method use to prepare a template data row for export data in CSV file.
+        @param : self, odoo_template, product, position
+        @return: row
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 14 September 2020 .
+        Task_id: 165896
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         row = {
             'template_name': odoo_template.name,
@@ -228,6 +272,7 @@ class PrepareProductForExport(models.TransientModel):
         :param ctg_list: It contain the category ids list
         :return: It will return True if the product category successful complete
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_categ = self.env['woo.product.categ.ept']
         product_category_obj = self.env['product.category']
@@ -262,15 +307,17 @@ class PrepareProductForExport(models.TransientModel):
                         woo_cat_id = self.create_woo_category(list_categ_id.name, instance, parent_id)
                         woo_category_dict.update({(categ_id, instance): woo_cat_id.id})
                     if not parent_id.parent_id.id == woo_product_category.id and woo_product_categ.instance_id.id == \
-                        instance:
+                            instance:
                         woo_product_category.write({'parent_id': parent_id.id})
                         woo_category_dict.update({(categ_id, instance): parent_id.id})
         return woo_category_dict
 
     def search_woo_category(self, category_name, instance, parent_id=False):
-        """ This method is used to search woo layer category.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
-            Task_id: 168189 - Woo Commerce Wizard py files refactor
+        """
+        This method is used to search woo layer category.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
+        Task_id: 168189 - Woo Commerce Wizard py files refactor
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_categ = self.env['woo.product.categ.ept']
         domain = [('name', '=', category_name), ('woo_instance_id', '=', instance)]
@@ -281,9 +328,11 @@ class PrepareProductForExport(models.TransientModel):
         return woo_categ
 
     def create_woo_category(self, category_name, instance, parent_id=False):
-        """ This method is used to create a category in the Woo layer.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
-            Task_id: 168189 - Woo Commerce Wizard py files refactor
+        """
+        This method is used to create a category in the Woo layer.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 9 November 2020 .
+        Task_id: 168189 - Woo Commerce Wizard py files refactor
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_categ = self.env['woo.product.categ.ept']
         vals = {'name': category_name, 'woo_instance_id': instance}
@@ -300,6 +349,7 @@ class PrepareProductForExport(models.TransientModel):
         :param instance_id: It contain the browsable object of the current instance
         :return: It will return browsable category object
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_categ = self.env['woo.product.categ.ept']
         woo_categ_id = woo_product_categ.search([('name', '=', categ_obj.name),
@@ -309,10 +359,12 @@ class PrepareProductForExport(models.TransientModel):
         return woo_categ_id
 
     def create_woo_template_images(self, woo_template):
-        """ This method is use to create images in Woo layer.
-            @param : self,woo_template
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 14 September 2020 .
-            Task_id: 165896
+        """
+        This method is use to create images in Woo layer.
+        @param : self,woo_template
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 14 September 2020 .
+        Task_id: 165896
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_image_obj = self.env["woo.product.image.ept"]
         woo_product_image_list = []
@@ -335,10 +387,12 @@ class PrepareProductForExport(models.TransientModel):
             woo_product_image_obj.create(woo_product_image_list)
 
     def create_woo_variant_images(self, woo_template, woo_variant):
-        """ This method is use to create variant images in Woo layer.
-            @param : self,woo_template
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 14 September 2020 .
-            Task_id: 165896
+        """
+        This method is use to create variant images in Woo layer.
+        @param : self,woo_template
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 14 September 2020 .
+        Task_id: 165896
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_image_obj = self.env["woo.product.image.ept"]
         product_id = woo_variant.product_id

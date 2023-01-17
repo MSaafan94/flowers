@@ -44,6 +44,7 @@ class WooProductDataQueueEpt(models.Model):
         """
         Computes product queue lines by different states.
         @author: Maulik Barad on Date 25-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for record in self:
             queue_lines = record.queue_line_ids
@@ -51,13 +52,14 @@ class WooProductDataQueueEpt(models.Model):
             record.product_draft_state_count = len(queue_lines.filtered(lambda x: x.state == "draft"))
             record.product_done_state_count = len(queue_lines.filtered(lambda x: x.state == "done"))
             record.product_failed_state_count = len(queue_lines.filtered(lambda x: x.state == "failed"))
-            record.cancelled_line_count = len(queue_lines.filtered(lambda x: x.state == "cancelled"))
+            record.cancelled_line_count = len(queue_lines.filtered(lambda x: x.state == "cancel"))
 
     @api.depends("queue_line_ids.state")
     def _compute_state(self):
         """
         Computes state of Product queue from queue lines' state.
         @author: Maulik Barad on Date 25-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for record in self:
             if (record.product_done_state_count + record.cancelled_line_count) == record.products_count:
@@ -75,6 +77,7 @@ class WooProductDataQueueEpt(models.Model):
         Inherited and create a sequence and new product queue
         :param vals: It will contain the updated data and its type is Dictionary
         :return: It will return the object of newly created product queue
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         ir_sequence_obj = self.env['ir.sequence']
         record_name = "/"
@@ -88,16 +91,17 @@ class WooProductDataQueueEpt(models.Model):
         """
         Cancels all draft and failed queue lines.
         @author: Maulik Barad on Date 25-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         need_to_cancel_queue_lines = self.queue_line_ids.filtered(lambda x: x.state in ["draft", "failed"])
-        need_to_cancel_queue_lines.write({"state": "cancelled",'image_import_state': 'done'})
+        need_to_cancel_queue_lines.write({"state": "cancel", 'image_import_state': 'done'})
         return True
 
     def create_product_queue_from_webhook(self, product_data, instance, wc_api):
         """
         This method used to create a product queue from webhook response.
         @author: Haresh Mori on Date 31-Dec-2019.
-        Migration done by Haresh Mori @ Emipro on date 24 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         is_sync_image_with_product = 'done'
         product_data_queue_obj = self.env['woo.product.data.queue.ept']
@@ -123,7 +127,7 @@ class WooProductDataQueueEpt(models.Model):
                 'queue_id': product_data_queue.id, 'woo_synced_data': json.dumps(product_data),
                 'woo_update_product_date': product_data.get('date_modified'),
                 'woo_synced_data_id': product_data.get('id'),
-                'image_import_state':is_sync_image_with_product
+                'image_import_state': is_sync_image_with_product
             }
             product_queue_line_obj.create(sync_queue_vals_line)
             _logger.info("Added product id : %s in existing product queue %s", product_data.get('id'),
@@ -136,3 +140,8 @@ class WooProductDataQueueEpt(models.Model):
             import_export = process_import_export_obj.create({"woo_instance_id": instance.id})
             import_export.sudo().woo_import_products([product_data], "webhook")
         return True
+
+    @api.model
+    def retrieve_dashboard(self, *args, **kwargs):
+        dashboard = self.env['queue.line.dashboard']
+        return dashboard.get_data(table='woo.product.data.queue.line.ept')

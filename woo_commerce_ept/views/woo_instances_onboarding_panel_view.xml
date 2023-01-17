@@ -70,12 +70,6 @@
         </t>
     </template>
 
-    <!--
-        Inherited main onboarding view in order to add collapse button
-        @param {is_woo_panel(to add button in specified view )}
-        Added by: Preet Bhatti @Emipro Technologies
-        Added on: 28/09/2020
-    -->
     <template id="inherit_onboarding_container" inherit_id="base.onboarding_container">
         <xpath expr="div[hasclass('o_onboarding_container')]" position="before">
             <t t-if="is_woo_panel">
@@ -90,8 +84,7 @@
 
         <!-- Changes to class to toogle the onBoadring panel-->
         <xpath expr="div[hasclass('o_onboarding_container')]" position="attributes">
-            <attribute name="t-att-class">'o_onboarding_container collapse' if hide_panel else 'o_onboarding_container collapse show'
-            </attribute>
+            <attribute name="t-att-class">'o_onboarding_container collapse' if hide_panel else 'o_onboarding_container collapse show'</attribute>
         </xpath>
 
         <!-- Remove close button from onboarding panel-->
@@ -99,11 +92,5 @@
             <attribute name="class">float-right o_onboarding_btn_close common_close_button_hide_ept</attribute>
         </xpath>
     </template>
-
-<!--    <template id="inherit_assets_backend_woo" inherit_id="web.assets_backend">-->
-<!--        <xpath expr="." position="inside">-->
-<!--            <script src="/woo_commerce_ept/static/src/js/woo_button_collapse.js"></script>-->
-<!--        </xpath>-->
-<!--    </template>-->
 
 </odoo>

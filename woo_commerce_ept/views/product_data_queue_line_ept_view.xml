@@ -47,11 +47,18 @@
         <field name="name">Product Data Queue Lines</field>
         <field name="model">woo.product.data.queue.line.ept</field>
         <field name="arch" type="xml">
-            <tree>
-                <field name="woo_instance_id"/>
-                <field name="synced_date"/>
+            <tree create="0">
+                <header>
+                    <button name="%(woo_commerce_ept.action_product_import_process_manual)d"
+                            string="Process Queue Line" type="action"/>
+                </header>
+                <field name="woo_synced_data_id" string="Data ID"/>
+                <field name="name"/>
+                <field name="image_import_state" widget="badge" decoration-success="state == 'done'"
+                       decoration-warning="state == 'pending'"/>
+                <field name="write_date" string="Last Updated On"/>
                 <field name="state" widget="badge" decoration-success="state == 'done'"
-                       decoration-info="state not in ('done')"/>
+                       decoration-danger="state == 'failed'" decoration-info="state not in ('done')"/>
             </tree>
         </field>
     </record>

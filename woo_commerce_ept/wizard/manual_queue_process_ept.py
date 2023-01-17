@@ -14,6 +14,7 @@ class WooManualQueueProcessEpt(models.TransientModel):
         """
         It calls different methods queue type wise.
         @author: Maulik Barad on Date 08-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         queue_type = self._context.get("queue_type", "")
         if queue_type == "order":
@@ -31,10 +32,14 @@ class WooManualQueueProcessEpt(models.TransientModel):
         """
         This method used to process the order queue manually.
         @author: Maulik Barad on Date 08-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
-        order_data_queue_obj = self.env['woo.order.data.queue.ept']
-        order_queue_ids = order_data_queue_obj.browse(self._context.get('active_ids'))
-
+        model = self._context.get('active_model')
+        order_data_queue_obj = self.env[model]
+        order_queue_ids = order_data_queue_obj.browse(self._context.get('active_ids')).filtered(
+            lambda x: x.state != "done")
+        if model == 'woo.order.data.queue.line.ept':
+            order_queue_ids = order_queue_ids.mapped('order_data_queue_id').filtered(lambda x: x.state != "done")
         self.env.cr.execute(
             """update woo_order_data_queue_ept set is_process_queue = False where is_process_queue = True""")
         self._cr.commit()
@@ -46,17 +51,22 @@ class WooManualQueueProcessEpt(models.TransientModel):
         return True
 
     def process_customer_queue_manually(self):
-        """This method is used for import customer manually instead of cron.
-            It'll fetch only those queues which is not 'completed' and
-            process only those queue lines which is not 'done'.
-            @param : self
-            @return: True
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 31 August 2020 .
-            Task_id: 165956
         """
-        customer_data_queue_obj = self.env['woo.customer.data.queue.ept']
+        This method is used for import customer manually instead of cron.
+        It'll fetch only those queues which is not 'completed' and
+        process only those queue lines which is not 'done'.
+        @param : self
+        @return: True
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 31 August 2020 .
+        Task_id: 165956
+        Migrated by Maulik Barad on Date 07-Oct-2021.
+        """
+        model = self._context.get('active_model')
+        customer_data_queue_obj = self.env[model]
         customer_queues = customer_data_queue_obj.browse(
             self._context.get('active_ids', False)).filtered(lambda x: x.state != "done")
+        if model == 'woo.customer.data.queue.line.ept':
+            customer_queues = customer_queues.mapped('queue_id').filtered(lambda x: x.state != "done")
         for customer_queue in customer_queues:
             customer_queue_lines = customer_queue.queue_line_ids.filtered(lambda x: x.state in ['draft', 'failed'])
             if customer_queue_lines:
@@ -67,10 +77,15 @@ class WooManualQueueProcessEpt(models.TransientModel):
         """
         This method used to process the products queue manually.
         @author: Dipak Gogiya
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
-        product_data_queue_obj = self.env['woo.product.data.queue.ept']
-        product_queue_ids = product_data_queue_obj.browse(self._context.get('active_ids')).filtered(
+        model = self._context.get('active_model')
+        product_queue_data_obj = self.env[model]
+        product_queue_ids = product_queue_data_obj.browse(self._context.get('active_ids')).filtered(
             lambda x: x.state != 'done')
+        if model == 'woo.product.data.queue.line.ept':
+            product_queue_ids = product_queue_ids.mapped('queue_id').filtered(
+                lambda x: x.state != 'done')
         self.env.cr.execute(
             """update woo_product_data_queue_ept set is_process_queue = False where is_process_queue = True""")
         self._cr.commit()
@@ -85,11 +100,15 @@ class WooManualQueueProcessEpt(models.TransientModel):
         """
         This method used to process the coupon queue manually.
         @author: Nilesh Parmar on Date 31 Dec 2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
-        coupon_data_queue_obj = self.env['woo.coupon.data.queue.ept']
-        coupon_queue_ids = coupon_data_queue_obj.browse(
-            self._context.get('active_ids'))
-
+        model = self._context.get('active_model')
+        coupon_data_queue_obj = self.env[model]
+        coupon_queue_ids = coupon_data_queue_obj.browse(self._context.get('active_ids')).filtered(
+            lambda x: x.state != 'done')
+        if model == 'woo.coupon.data.queue.line.ept':
+            coupon_queue_ids = coupon_queue_ids.mapped('coupon_data_queue_id').filtered(
+                lambda x: x.state != 'done')
         for coupon_queue_id in coupon_queue_ids:
             coupon_queue_line_batch = coupon_queue_id.coupon_data_queue_line_ids.filtered(
                 lambda x: x.state in ["draft", "failed"])
@@ -97,9 +116,11 @@ class WooManualQueueProcessEpt(models.TransientModel):
         return True
 
     def woo_action_archive(self):
-        """ This method is used to call a child of the instance to active/inactive instance and its data.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 November 2020 .
-            Task_id: 167723
+        """
+        This method is used to call a child of the instance to active/inactive instance and its data.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 November 2020 .
+        Task_id: 167723
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         instance_obj = self.env['woo.instance.ept']
         instances = instance_obj.browse(self._context.get('active_ids'))

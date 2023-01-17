@@ -103,12 +103,10 @@
         <field name="search_view_id" ref="account.view_account_invoice_filter"/>
     </record>
 
-    <menuitem id="woo_invoice" parent="woo_sales_menu" sequence="3" name="Invoices"/>
+    <menuitem id="menu_item_woo_refund_ept" name="Refunds" parent="woo_sales_menu" action="action_refund_woo_invoices_ept"
+              sequence="5"/>
 
-    <menuitem id="menu_item_woo_refund_ept" name="Refunds" parent="woo_invoice" action="action_refund_woo_invoices_ept"
-              sequence="2"/>
-
-    <menuitem id="menu_item_woo_invoice_ept" name="Invoices" parent="woo_invoice"
-              action="action_invoice_woo_invoices_ept" sequence="1"/>
+    <menuitem id="menu_item_woo_invoice_ept" name="Invoices" parent="woo_sales_menu"
+              action="action_invoice_woo_invoices_ept" sequence="4"/>
 
 </odoo>

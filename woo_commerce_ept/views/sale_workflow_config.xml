@@ -49,7 +49,7 @@
         <field eval="16" name="priority"/>
         <field name="type">tree</field>
         <field name="arch" type="xml">
-            <tree editable="top">
+            <tree editable="top" sample="1">
                 <field name="woo_instance_id" options="{'no_create':True,'no_create_edit': True}"
                        domain="[('active','=',True)]"/>
                 <field name="woo_auto_workflow_id"/>
@@ -60,7 +60,7 @@
     </record>
 
     <menuitem id="woo_configuration_menu_items" name="Configuration" parent="woo_commerce_ept.woo_commerce_main_menu"
-              sequence="6" groups="woo_commerce_ept.group_woo_manager_ept"/>
+              sequence="7" groups="woo_commerce_ept.group_woo_manager_ept"/>
 
     <record id="act_sale_workflow_process_form" model="ir.actions.act_window">
         <field name="name">Auto Workflow</field>

@@ -41,6 +41,7 @@ class WooCustomerDataQueueEpt(models.Model):
         """
         Computes customer queue lines by different states.
         @author: Maulik Barad on Date 25-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for record in self:
             queue_lines = record.queue_line_ids
@@ -48,13 +49,14 @@ class WooCustomerDataQueueEpt(models.Model):
             record.draft_state_count = len(queue_lines.filtered(lambda x: x.state == "draft"))
             record.done_state_count = len(queue_lines.filtered(lambda x: x.state == "done"))
             record.failed_state_count = len(queue_lines.filtered(lambda x: x.state == "failed"))
-            record.cancelled_line_count = len(queue_lines.filtered(lambda x: x.state == "cancelled"))
+            record.cancelled_line_count = len(queue_lines.filtered(lambda x: x.state == "cancel"))
 
     @api.depends("queue_line_ids.state")
     def _compute_state(self):
         """
         Computes state of Customer queue from queue lines' state.
         @author: Maulik Barad on Date 25-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for record in self:
             if (record.done_state_count + record.cancelled_line_count) == record.customers_count:
@@ -72,6 +74,7 @@ class WooCustomerDataQueueEpt(models.Model):
         Inherited and create a sequence and new customer queue
         :param vals: It will contain the updated data and its type is Dictionary
         :return: It will return the object of newly created customer queue
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         ir_sequence_obj = self.env['ir.sequence']
         record_name = "/"
@@ -85,9 +88,10 @@ class WooCustomerDataQueueEpt(models.Model):
         """
         Cancels all draft and failed queue lines.
         @author: Maulik Barad on Date 25-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         need_to_cancel_queue_lines = self.queue_line_ids.filtered(lambda x: x.state in ["draft", "failed"])
-        need_to_cancel_queue_lines.write({"state": "cancelled"})
+        need_to_cancel_queue_lines.write({"state": "cancel"})
         return True
 
     def create_customer_data_queue_for_webhook(self, instance, customer):
@@ -95,6 +99,7 @@ class WooCustomerDataQueueEpt(models.Model):
         @param customer: Customer's data from webhook.
         @param instance: Record of Woo Instance.
         @author: Maulik Barad on Date 27-Oct-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         customer_data_queue_line_obj = self.env['woo.customer.data.queue.line.ept']
         customer_queue = self.search([('woo_instance_id', '=', instance.id), ('created_by', '=', "webhook"),
@@ -119,3 +124,8 @@ class WooCustomerDataQueueEpt(models.Model):
         if len(customer_queue.queue_line_ids) >= 50:
             customer_queue.queue_line_ids.process_woo_customer_queue_lines_directly()
         return customer_queue
+
+    @api.model
+    def retrieve_dashboard(self, *args, **kwargs):
+        dashboard = self.env['queue.line.dashboard']
+        return dashboard.get_data(table='woo.customer.data.queue.line.ept')

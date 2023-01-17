@@ -123,7 +123,7 @@
                     <div class="col-xs-12 col-md-6 o_setting_box o_onboard_setting_box">
                         <div class="ml-2 pl-1">
                             <label for="woo_import_order_status_ids" class="o_onboard_label"
-                                   string="WooCommerce Import Order Status"/>
+                                   string="Import Order Status"/>
                             <field name="woo_import_order_status_ids"
                                    widget="many2many_tags"
                                    options="{'no_create':True,'no_create_edit': True}"
@@ -131,23 +131,51 @@
                                    class="o_light_label o_onboard_input"/>
                         </div>
                     </div>
-                    <div class="col-xs-12 col-md-6 o_setting_box o_onboard_setting_box">
+                    <div class="col-xs-12 col-lg-6 o_setting_box o_onboard_setting_box">
                         <div class="ml-2 pl-1">
-                            <label for="woo_last_order_import_date" class="o_onboard_label"
-                                   string="Import Order From"/>
-                            <field name="woo_last_order_import_date"
+                            <label for="woo_pricelist_id" class="o_onboard_label" string="WooCommerce Pricelist"/>
+                            <field name="woo_pricelist_id"
+                                   options="{'no_create':True,'no_create_edit':True}"
                                    class="o_light_label o_onboard_input"/>
-                            <a href="javascript:void(0)" title="Set the last import order date."
-                               class="mr-2 o_doc_link o_onboard_doc_link"/>
                         </div>
                     </div>
-
                     <div class="col-xs-12 col-lg-6 o_setting_box o_onboard_setting_box">
                         <div class="ml-2 pl-1">
                             <label for="woo_sales_team_id" class="o_onboard_label" string="WooCommerce Sales Team"/>
                             <field name="woo_sales_team_id"
                                    options="{'no_create':True,'no_create_edit':True}"
                                    class="o_light_label o_onboard_input"/>
+                        </div>
+                    </div>
+                    <div class="col-xs-12 col-lg-6 o_setting_box o_onboard_setting_box">
+                        <div class="ml-2 pl-1">
+                            <label for="woo_payment_term_id" class="o_onboard_label"
+                                   string="WooCommerce Payment Terms"/>
+                            <field name="woo_payment_term_id"
+                                   options="{'no_create':True,'no_create_edit':True}"
+                                   class="o_light_label o_onboard_input"/>
+                        </div>
+                    </div>
+
+                    <div class="col-xs-12 col-md-6 o_setting_box o_onboard_setting_box"
+                         groups="analytic.group_analytic_accounting">
+                        <div class="ml-2 pl-1">
+                            <label for="woo_analytic_account_id" class="o_onboard_label" string="Analytic Account"/>
+                            <field name="woo_analytic_account_id" class="o_light_label o_onboard_input"/>
+                            <a href="javascript:void(0)"
+                               title="- Set the Analytic Account for WooCommerce orders. &#013;Note :- The configuration of the analytic account for this instance will be applied to all sales orders created by the connector. With this configuration, the Analytic Default Rule configured in Odoo will not apply to WooCommerce orders Invoices. If you wish to use Odoo Analytic Default Rule, you will not have to configure any analytic account here."
+                               class="ml-2 o_doc_link o_onboard_doc_link"/>
+                        </div>
+                    </div>
+                    <div class="col-xs-12 col-md-6 o_setting_box o_onboard_setting_box"
+                         groups="analytic.group_analytic_tags">
+                        <div class="ml-2 pl-1">
+                            <label for="woo_analytic_tag_ids" class="o_onboard_label" string="Analytic Tags"/>
+                            <field name="woo_analytic_tag_ids" class="o_light_label o_onboard_input"
+                                   widget="many2many_tags"/>
+                            <a href="javascript:void(0)"
+                               title="- Set the Analytic Tags for WooCommerce orders line. &#013;Note :- The configuration of the analytic tags for this instance will be applied to all sales orders created by the connector. With this configuration, the Analytic Default Rule configured in Odoo will not apply to WooCommerce orders invoices. If you wish to use Odoo Analytic Default Rule, you will not have to configure any analytic tags here."
+                               class="ml-2 o_doc_link o_onboard_doc_link"/>
                         </div>
                     </div>
 
@@ -163,7 +191,6 @@
                                class="mr-2 o_doc_link o_onboard_doc_link"/>
                         </div>
                     </div>
-
                     <div class="col-xs-12 col-md-6 o_setting_box o_onboard_setting_box">
                         <div class="ml-2 pl-1">
                             <field name="woo_custom_order_prefix"
@@ -175,7 +202,6 @@
                                class="mr-2 o_doc_link o_onboard_doc_link"/>
                         </div>
                     </div>
-
                     <div class="col-xs-12 col-md-6 o_setting_box o_onboard_setting_box">
                         <div class="ml-2 pl-1"
                              attrs="{'invisible': [('woo_custom_order_prefix', '=', True)]}">
@@ -206,7 +232,7 @@
                     <div class="col-xs-12 col-lg-6 o_setting_box o_onboard_setting_box">
                         <div class="ml-2 pl-1">
                             <label for="woo_tax_rounding_method" class="o_onboard_label"
-                                   string="WooCommerce Tax Rounding Method"/>
+                                   string="Tax Rounding Method"/>
                             <field name="woo_tax_rounding_method" widget="radio"
                                    class="o_onboard_radio_toggle o_onboard_input"
                             />

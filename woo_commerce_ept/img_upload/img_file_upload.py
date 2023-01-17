@@ -18,8 +18,9 @@ def upload_image(instance, image_data, image_name, mime_type):
     @param image_name: Name of the image.
     @param mime_type: Mimetype of image.
     @return: Response from WooCommerce.
+    Migrated by Maulik Barad on Date 07-Oct-2021.
     """
-    if not image_data or not image_name:
+    if not image_data or not image_name or not instance.woo_admin_username or not instance.woo_admin_password:
         return {}
     client = base.Client('%s/xmlrpc.php' % instance.woo_host, instance.woo_admin_username, instance.woo_admin_password)
     binary_data = base64.decodebytes(image_data)

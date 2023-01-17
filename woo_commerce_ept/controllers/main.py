@@ -14,6 +14,7 @@ class Webhook(http.Controller):
     """
     Controller for Webhooks.
     @author: Maulik Barad on Date 09-Jan-2019.
+    Migrated by Maulik Barad on Date 07-Oct-2021.
     """
 
     @http.route("/update_product_webhook_odoo", csrf=False, auth="public", type="json")
@@ -22,6 +23,7 @@ class Webhook(http.Controller):
         Route for handling the product update webhook of WooCommerce.
         This method will only process main products, not variations.
         @author: Haresh Mori on Date 31-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         _logger.info("UPDATE PRODUCT WEBHOOK call for this product: %s", request.jsonrequest.get("name"))
         self.product_webhook_process()
@@ -33,6 +35,7 @@ class Webhook(http.Controller):
         Route for handling the product delete webhook for WooCommerce
         This method will only process main products, not variations.
         @author: Haresh Mori on Date 31-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         _logger.info("DELETE PRODUCT WEBHOOK call for this product: %s", request.jsonrequest)
         res, instance = self.get_basic_info()
@@ -52,6 +55,7 @@ class Webhook(http.Controller):
         Route for handling the product restore webhook of WooCommerce.
         This method will only process main products, not variations.
         @author: Haresh Mori on Date 31-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         _logger.info("RESTORE PRODUCT WEBHOOK call for this product: %s", request.jsonrequest.get("name"))
         res, instance = self.get_basic_info()
@@ -69,7 +73,7 @@ class Webhook(http.Controller):
         """
         This method used to process the product webhook response.
         @author: Haresh Mori on Date 31-Dec-2019.
-        Migration done by Haresh Mori @ Emipro on date 24 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res, instance = self.get_basic_info()
         if not res:
@@ -89,7 +93,7 @@ class Webhook(http.Controller):
         """
         Route for handling the order modification webhook of WooCommerce.
         @author: Maulik Barad on Date 21-Dec-2019.
-        Migration done by Haresh Mori @ Emipro on date 24 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res, instance = self.get_basic_info()
         if not res:
@@ -121,20 +125,21 @@ class Webhook(http.Controller):
         """
         Route for handling the order modification webhook of WooCommerce.
         @author: Maulik Barad on Date 21-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res = request.jsonrequest
         headers = request.httprequest.headers
         event = headers.get("X-Wc-Webhook-Event")
         _logger.warning("Record %s %s - %s via Webhook", res.get("id"), event,
                         res.get("name", res.get("code", "")) if event != "deleted" else "Done")
-        _logger.warning(res)
-        return
+        # _logger.warning(res)
 
     @http.route("/update_customer_webhook_odoo", csrf=False, auth="public", type="json")
     def update_customer_webhook(self):
         """
         Route for handling the customer update webhook of WooCommerce.
         @author: Dipak Gogiya on Date 01-Jan-2020
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res, instance = self.get_basic_info()
         if not res:
@@ -156,6 +161,7 @@ class Webhook(http.Controller):
         """
         Route for handling the customer deletion webhook of WooCommerce.
         @author: Dipak Gogiya on Date 31-Dec-2019
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res, instance = self.get_basic_info()
         if not res:
@@ -173,7 +179,7 @@ class Webhook(http.Controller):
         """
         Route for handling the coupon update webhook of WooCommerce.
         @author: Haresh Mori on Date 2-Jan-2020.
-        Migration done by Haresh Mori @ Emipro on date 25 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res, instance = self.get_basic_info()
         if not res:
@@ -191,7 +197,7 @@ class Webhook(http.Controller):
         """
         Route for handling the coupon delete webhook for WooCommerce
         @author: Haresh Mori on Date 2-Jan-2020.
-        Migration done by Haresh Mori @ Emipro on date 25 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res, instance = self.get_basic_info()
         if not res:
@@ -210,6 +216,7 @@ class Webhook(http.Controller):
         """
         This method is used return basic info. It will return res and instance.
         @author: Haresh Mori on Date 2-Jan-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         res = request.jsonrequest
         headers = request.httprequest.headers

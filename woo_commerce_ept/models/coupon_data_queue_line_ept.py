@@ -16,7 +16,7 @@ class WooCouponDataQueueLineEpt(models.Model):
     coupon_data_queue_id = fields.Many2one("woo.coupon.data.queue.ept", ondelete="cascade")
     instance_id = fields.Many2one(related="coupon_data_queue_id.woo_instance_id", copy=False,
                                   help="Coupon imported from this Woocommerce Instance.")
-    state = fields.Selection([("draft", "Draft"), ("failed", "Failed"), ("cancelled", "Cancelled"), ("done", "Done")],
+    state = fields.Selection([("draft", "Draft"), ("failed", "Failed"), ("cancel", "Cancelled"), ("done", "Done")],
                              default="draft", copy=False)
     woo_coupon = fields.Char(string="Woo Coupon Id", help="Id of imported coupon.", copy=False)
     coupon_id = fields.Many2one("woo.coupons.ept", copy=False, help="coupon created in Odoo.")
@@ -30,6 +30,7 @@ class WooCouponDataQueueLineEpt(models.Model):
         """
         Process the imported coupon data and create the coupon.
         @author: Nilesh Parmar on Date 31 Dec 2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_book_obj = self.env["common.log.book.ept"]
         coupon_obj = self.env["woo.coupons.ept"]
@@ -58,6 +59,7 @@ class WooCouponDataQueueLineEpt(models.Model):
         """
         This method used to find a coupon queue line records.
         @author: Nilesh Parmar on Date 31 Dec 2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         coupon_data_queue_obj = self.env["woo.coupon.data.queue.ept"]
         query = """SELECT coupon_data_queue_id FROM woo_coupon_data_queue_line_ept WHERE state = 'draft' ORDER BY

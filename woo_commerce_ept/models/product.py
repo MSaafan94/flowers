@@ -19,6 +19,7 @@ class ProductProduct(models.Model):
         """
         This method use to archive/active woo product base on odoo product.
         @author: Maulik Barad on Date 21-May-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if 'active' in vals.keys():
             woo_product_product_obj = self.env['woo.product.product.ept']
@@ -41,6 +42,7 @@ class ProductTemplate(models.Model):
         :return: res
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 09/12/2019.
         :Task id: 158502
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if 'active' in vals.keys():
             woo_product_template_obj = self.env['woo.product.template.ept']
@@ -54,6 +56,9 @@ class ProductTemplate(models.Model):
         return res
 
     def _compute_woo_template_count(self):
+        """
+        Migrated by Maulik Barad on Date 07-Oct-2021.
+        """
         woo_product_template_obj = self.env['woo.product.template.ept']
         for template in self:
             woo_templates = woo_product_template_obj.search([('product_tmpl_id', '=', template.id)])

@@ -40,6 +40,10 @@
         <field name="model">woo.coupon.data.queue.line.ept</field>
         <field name="arch" type="xml">
             <tree create="0" delete="0">
+                <header>
+                    <button name="%(woo_commerce_ept.action_coupon_import_process_manual)d"
+                            string="Process Queue Line" type="action"/>
+                </header>
                 <field name="woo_coupon"/>
                 <field name="number"/>
                 <field name="write_date" string="Last Updated On"/>

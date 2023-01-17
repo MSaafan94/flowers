@@ -23,8 +23,6 @@
         <field name="name">Order Import Process</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">woo.manual.queue.process.ept</field>
-        <field name="binding_model_id" ref="model_woo_order_data_queue_ept"/>
-        <field name="binding_view_types">list</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
         <field name="context">{'queue_type': 'order'}</field>
@@ -36,8 +34,6 @@
         <field name="name">Customer Import Process</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">woo.manual.queue.process.ept</field>
-        <field name="binding_model_id" ref="model_woo_customer_data_queue_ept"/>
-        <field name="binding_view_types">list</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
         <field name="context">{'queue_type': 'customer'}</field>
@@ -49,8 +45,6 @@
         <field name="name">Product Import Process</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">woo.manual.queue.process.ept</field>
-        <field name="binding_model_id" ref="model_woo_product_data_queue_ept"/>
-        <field name="binding_view_types">list</field>
         <field name="view_mode">form</field>
         <field name="context">{'queue_type': 'product'}</field>
         <field name="target">new</field>
@@ -62,8 +56,6 @@
         <field name="name">Coupon Import Process</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">woo.manual.queue.process.ept</field>
-        <field name="binding_model_id" ref="model_woo_coupon_data_queue_ept"/>
-        <field name="binding_view_types">list</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
         <field name="context">{'queue_type': 'coupon'}</field>

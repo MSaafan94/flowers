@@ -29,32 +29,33 @@
                 </div>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button class="oe_stat_button" icon="fa-th-list">
+                        <button class="oe_stat_button" icon="fa-th-list" disabled="1">
                             <field name="products_count" widget="statinfo" string="Total Products"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-info-circle">
+                        <button class="oe_stat_button" icon="fa-info-circle" disabled="1">
                             <field name="product_draft_state_count" widget="statinfo" string="Draft"/>
                         </button>
                         <button class="oe_stat_button" icon="fa-times-circle"
-                                attrs="{'invisible':[('state', 'in', ['partial'])]}">
+                                attrs="{'invisible':[('state', 'in', ['partial'])]}" disabled="1">
                             <field name="product_failed_state_count" widget="statinfo" string="Failed"/>
                         </button>
                         <button class="oe_stat_button"
-                                attrs="{'invisible':[('state', 'not in', ['partial'])]}">
+                                attrs="{'invisible':[('state', 'not in', ['partial'])]}" disabled="1">
                             <span class="fa-stack fa-lg"
                                   style="padding-top: 6px; margin-left:-3px; margin-top:2PX; font-size: 22px; color:#ff0000;">
                                 <i class="fa fa-times-circle" style="margin-left:18px;" title="Time circle"/>
                             </span>
                             <field name="product_failed_state_count" widget="statinfo" string="Failed"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-trash">
+                        <button class="oe_stat_button" icon="fa-trash" disabled="1">
                             <field name="cancelled_line_count" widget="statinfo" string="Cancelled"/>
                         </button>
-                        <button class="oe_stat_button" icon="fa-check-square"
+                        <button class="oe_stat_button" icon="fa-check-square" disabled="1"
                                 attrs="{'invisible':[('state', 'in', ['done'])]}">
                             <field name="product_done_state_count" widget="statinfo" string="Done"/>
                         </button>
-                        <button class="oe_stat_button" attrs="{'invisible':[('state', 'not in', ['done'])]}">
+                        <button class="oe_stat_button" attrs="{'invisible':[('state', 'not in', ['done'])]}"
+                                disabled="1">
                             <span class="fa-stack fa-lg" style="padding-top: 6px; margin-left:-3px; color:#00ff00;">
                                 <i class="fa fa-check fa-stack-1x" style="margin-left:4px;" title="Stack 1x"/>
                                 <i class="fa fa-check fa-inverse fa-stack-1x" style="margin-left:-3px;"
@@ -85,17 +86,8 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Product Queues" name="queue_line_log">
-                            <field name="queue_line_ids" widget="section_and_note_one2many" mode="tree, kanban">
-                                <tree>
-                                    <field name="woo_synced_data_id" string="Data ID"/>
-                                    <field name="name"/>
-                                    <field name="image_import_state" widget="badge" decoration-success="state == 'done'" decoration-warning="state == 'pending'"/>
-                                    <field name="write_date" string="Last Updated On"/>
-                                    <field name="state" widget="badge" decoration-success="state == 'done'"
-                                           decoration-info="state not in ('done')"/>
-                                </tree>
-                            </field>
+                        <page string="Queue Lines" name="queue_line_log">
+                            <field name="queue_line_ids" readonly="1"/>
                         </page>
                         <page string="Log Lines">
                             <field name="common_log_lines_ids">
@@ -121,14 +113,19 @@
         <field name="name">Product Data Queues</field>
         <field name="model">woo.product.data.queue.ept</field>
         <field name="arch" type="xml">
-            <tree create="0" delete="0" default_order="id desc" decoration-primary="is_process_queue==True" sample="1">
+            <tree create="0" delete="0" default_order="id desc" decoration-primary="is_process_queue==True" sample="1"
+                  js_class="queue_line_ept_dashboard">
+                <header>
+                    <button name="%(woo_commerce_ept.action_product_import_process_manual)d"
+                            string="Process Queue" type="action"/>
+                </header>
                 <field name="name"/>
                 <field name="woo_instance_id"/>
                 <field name="create_date"/>
                 <field name="state" decoration-success="state == 'done'" decoration-info="state == 'draft'"
                        decoration-warning="state == 'partial'" decoration-danger="state == 'failed'" widget="badge"/>
                 <field name="is_action_require" invisible="1"/>
-                <button string="Need manual interaction" icon="fa-exclamation-triangle text-danger"
+                <button string="Need manual interaction" icon="fa-exclamation-triangle text-danger" special="cancel"
                         attrs="{'invisible': ['|',('is_action_require','=',False),('state','=','done')]}"/>
                 <field name="is_process_queue" invisible="1"/>
                 <field name="running_status"
@@ -187,7 +184,7 @@
     </record>
 
     <!-- For Product Data Queue Menu -->
-    <menuitem id="woo_product_data_queue_menu" name="Products" parent="woo_commerce_ept.menu_woo_queue_log" sequence="2"
+    <menuitem id="woo_product_data_queue_menu" name="Products Queue" parent="woo_commerce_ept.menu_woo_logs" sequence="3"
               action="action_woo_product_data_queue_ept"/>
 
 </odoo>

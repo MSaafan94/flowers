@@ -7,7 +7,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 import requests
-
+import pytz
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 from ..img_upload import img_file_upload
@@ -60,6 +60,9 @@ class WooProductTemplateEpt(models.Model):
 
     @api.onchange("product_tmpl_id")
     def on_change_product(self):
+        """
+        Migrated Maulik Barad on Date 07-Oct-2021.
+        """
         for record in self:
             record.name = record.product_tmpl_id.name
 
@@ -70,6 +73,7 @@ class WooProductTemplateEpt(models.Model):
         :return: res
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 09/12/2019.
         :Task id: 158502
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_product_obj = self.env['woo.product.product.ept']
         if 'active' in vals.keys():
@@ -92,7 +96,7 @@ class WooProductTemplateEpt(models.Model):
         :param variant: It contain the woo product variant
         :return: return the image response in dictionary
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
-        Migration done by Haresh Mori @ Emipro on date 21 September 2020 .
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         image_id = False
         variation_data = {}
@@ -103,7 +107,7 @@ class WooProductTemplateEpt(models.Model):
                 res = img_file_upload.upload_image(instance, variant_images[0].image,
                                                    "%s_%s" % (variant.name, variant.id),
                                                    variant_images[0].image_mime_type)
-                image_id = res and res.get('id') or ''
+                image_id = res.get('id') if res else ''
             else:
                 image_id = variant_images[0].woo_image_id
 
@@ -123,6 +127,7 @@ class WooProductTemplateEpt(models.Model):
         :param update_image: It contain Either True or False
         :return: It will return the product variant details and its type is Dict.
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         attrs = []
         woo_attribute_obj = self.env['woo.product.attribute.ept']
@@ -164,6 +169,7 @@ class WooProductTemplateEpt(models.Model):
         :param variant: It contain the woo product variant
         :return: It will return the product regular price and sale price into Dict Format.
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         price = instance.woo_pricelist_id.get_product_price_ept(variant.product_id)
         return {'regular_price': str(price), 'sale_price': str(price)}
@@ -175,6 +181,7 @@ class WooProductTemplateEpt(models.Model):
         :return: list of batches
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd
         :Task id: 156886
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         batches = []
         start, end = 0, 100
@@ -199,9 +206,10 @@ class WooProductTemplateEpt(models.Model):
         :return: Boolean
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd On Data 19-Nov-2019
         :Task id: 156886
-        Migration done by Haresh Mori @ Emipro on date 10 September 2020 .
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_obj = self.env["common.log.book.ept"]
+        sale_order_obj = self.env['sale.order']
         log_lines = []
 
         product_ids = woo_templates.woo_product_ids.product_id
@@ -218,8 +226,12 @@ class WooProductTemplateEpt(models.Model):
 
         instance.write({'last_inventory_update_time': datetime.now()})
         if log_lines:
-            common_log_obj.create({'type': 'export', 'module': 'woocommerce_ept', 'woo_instance_id': instance.id,
-                                   'log_lines': [(6, 0, log_lines)]})
+            log_book = common_log_obj.create(
+                {'type': 'export', 'module': 'woocommerce_ept', 'woo_instance_id': instance.id,
+                 'log_lines': [(6, 0, log_lines)]})
+            if log_book and instance.is_create_schedule_activity:
+                message = sale_order_obj.prepare_schedule_activity_message(log_book)
+                sale_order_obj.woo_create_schedule_activity_against_logbook(log_book, message)
         return True
 
     def check_stock_type(self, instance, product_ids):
@@ -228,7 +240,7 @@ class WooProductTemplateEpt(models.Model):
         :param instance: This arguments relocates instance of Woocommerce.
         :param product_ids: This arguments product listing id of odoo.
         :return: This Method return product listing stock.
-        Migration done by Haresh Mori @ Emipro on date 11 September 2020 .
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         prod_obj = self.env['product.product']
         warehouse = instance.woo_warehouse_id
@@ -246,10 +258,12 @@ class WooProductTemplateEpt(models.Model):
         @param woo_template: Template record of Woo layer.
         @param product_stock: Stock data of products.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         variations = []
-        for variant in woo_template.woo_product_ids.filtered(lambda x: x.product_id.type == 'product' and
-                                                                       x.variant_id and x.woo_is_manage_stock):
+        for variant in woo_template.woo_product_ids.filtered(lambda x:
+                                                             x.product_id.detailed_type == 'product' and
+                                                             x.variant_id and x.woo_is_manage_stock):
             if variant.product_id.id in self._context.get('updated_products_in_inventory'):
                 quantity = product_stock.get(variant.product_id.id)
                 if variant.fix_stock_type == 'fix' and variant.fix_stock_value < quantity:
@@ -273,6 +287,7 @@ class WooProductTemplateEpt(models.Model):
         @return: log_lines
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 11 September 2020 .
         Task_id: 165895
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         log_lines = []
         common_log_line_obj = self.env["common.log.lines.ept"]
@@ -311,6 +326,7 @@ class WooProductTemplateEpt(models.Model):
         @param common_log_book: Record of Log Book.
         @return: Log line if issue found.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         if not isinstance(response, requests.models.Response):
@@ -337,6 +353,7 @@ class WooProductTemplateEpt(models.Model):
         @param woo_products: Products of Woo Layer.
         @param product_stock: Stock data of products.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         batch_update_data = []
         for template in woo_products:
@@ -359,8 +376,9 @@ class WooProductTemplateEpt(models.Model):
         This method used to export stock for simple products.
         @param : self,woo_simple_products,product_stock,instance
         @return: log_lines
-        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 11 September 2020 .
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 11 September 2020.
         Task_id: 165895
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id("woo.product.product.ept")
@@ -399,6 +417,7 @@ class WooProductTemplateEpt(models.Model):
         This method is used for unpublish product from woo commerce store
         :return: It will return True If product successfully unpublished from woo
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         instance = self.woo_instance_id
         woo_common_log_obj = self.env["common.log.book.ept"]
@@ -430,6 +449,7 @@ class WooProductTemplateEpt(models.Model):
         This method is used for publish product in woo commerce store
         @return: It will return True If product successfully published in woo
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         instance = self.woo_instance_id
         woo_common_log_obj = self.env["common.log.book.ept"]
@@ -466,9 +486,10 @@ class WooProductTemplateEpt(models.Model):
         @return: It will return response based on send request
         @param response:
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         attribute_term_data = []
-        total_pages = response and response.headers.get('x-wp-totalpages') or 1
+        total_pages = response.headers.get('x-wp-totalpages') if response else 1
         if int(total_pages) >= 2:
             for page in range(2, int(total_pages) + 1):
                 params = {'per_page': 100, 'page': page}
@@ -493,6 +514,7 @@ class WooProductTemplateEpt(models.Model):
         @param instance: Record of the instance.
         @param woo_attribute: Record of Attribute of Woo layer.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         obj_woo_attribute_term = self.env['woo.product.attribute.term.ept']
         odoo_attribute_value_obj = self.env['product.attribute.value']
@@ -537,6 +559,7 @@ class WooProductTemplateEpt(models.Model):
         @param instance: It contain the browsable object of the current instance
         @param attribute_ids:
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id("woo.product.attribute.term.ept")
@@ -568,7 +591,6 @@ class WooProductTemplateEpt(models.Model):
                 self.find_or_create_woo_attribute_term(attributes_term_data, instance, woo_attribute)
             else:
                 common_log_line_obj.woo_product_export_log_line(response.content, model_id, woo_common_log_id)
-                continue
         return True
 
     def woo_import_all_attributes(self, wc_api, woo_common_log_id, model_id, response):
@@ -580,9 +602,10 @@ class WooProductTemplateEpt(models.Model):
         @return: It will return the response of product attribute into Dict Format.
         @param response:
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         attributes_data = []
-        total_pages = response and response.headers.get('x-wp-totalpages') or 1
+        total_pages = response.headers.get('x-wp-totalpages', 0) if response else 1
         if int(total_pages) >= 2:
             for page in range(2, int(total_pages) + 1):
                 try:
@@ -604,6 +627,7 @@ class WooProductTemplateEpt(models.Model):
         @param attributes_data: Data of Attributes from Woo.
         @param instance: Record of the instance.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         obj_woo_attribute = self.env['woo.product.attribute.ept']
         odoo_attribute_obj = self.env['product.attribute']
@@ -641,6 +665,7 @@ class WooProductTemplateEpt(models.Model):
         :param woo_common_log_id: It contain the common log book id and its type is Object
         :return: It will return True if the process successfully completed.
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id("woo.product.attribute.ept")
@@ -654,33 +679,34 @@ class WooProductTemplateEpt(models.Model):
 
         attributes_data = self.check_woocommerce_response(response, "WooCommerce Attributes", model_id,
                                                           woo_common_log_id)
-        if not isinstance(attributes_data, list):
-            return True
-
-        attributes_data += self.woo_import_all_attributes(wc_api, woo_common_log_id, model_id, response)
-        if response.status_code in [201, 200]:
-            self.find_or_create_woo_attribute(attributes_data, instance)
-
-        else:
-            common_log_line_obj.woo_product_export_log_line(response.content, model_id, woo_common_log_id)
-            return True
-        self.sync_woo_attribute_term(instance, woo_common_log_id)
+        if isinstance(attributes_data, list):
+            attributes_data += self.woo_import_all_attributes(wc_api, woo_common_log_id, model_id, response)
+            if response.status_code in [201, 200]:
+                self.find_or_create_woo_attribute(attributes_data, instance)
+            else:
+                common_log_line_obj.woo_product_export_log_line(response.content, model_id, woo_common_log_id)
+            self.sync_woo_attribute_term(instance, woo_common_log_id)
         return True
 
-    def import_all_woo_products(self, instance, common_log_id, page):
+    def import_all_woo_products(self, instance, common_log_id, page, from_date, to_date):
         """
         :param instance: It contain the browsable object of class woo_instance_ept
         :param common_log_id: It contain the new log detail and its type is object
         :param page: It contain the products page number of woo commerce and its type is Integer
+        :param from_date: It contain after create date of product
+        :param to_date: It contain before create date of product
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
-        Migration done by Haresh Mori @ Emipro on date 14 August 2020.
-        Task_Id: 165891
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id('woo.product.template.ept')
         wc_api = instance.woo_connect()
+        from_date, to_date = self.woo_product_convert_dates_by_timezone(instance, from_date, to_date)
+        if from_date and to_date:
+            from_date = str(from_date)[:19].replace(" ", "T")
+            to_date = str(to_date)[:19].replace(" ", "T")
         try:
-            res = wc_api.get('products', params={'per_page': 100, 'page': page})
+            res = wc_api.get('products', params={'per_page': 100, 'page': page, 'after': from_date, 'before': to_date})
         except Exception as error:
             raise UserError(_("Something went wrong while importing Products.\n\nPlease Check your Connection and"
                               "Instance Configuration.\n\n" + str(error)))
@@ -699,6 +725,7 @@ class WooProductTemplateEpt(models.Model):
         @param import_all: Flag for importing all products or not.
         @param template_id: Id of a WooCommerce product, if only needed the data of it and no need of queue.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         bus_bus_obj = self.env['bus.bus']
         process_import_export_obj = self.env["woo.process.import.export"]
@@ -708,36 +735,33 @@ class WooProductTemplateEpt(models.Model):
         total_result = self.process_product_response(results, instance, common_log_id, template_id, import_all)
         if template_id:
             return total_result
-        elif total_result and not template_id:
+
+        if total_result and not template_id:
             queues = woo_process_import_export.woo_import_products(total_result)
             product_queue_ids = queues.mapped('id')
             message = "Product Queue created ", queues.mapped('name')
-            bus_bus_obj.sendone((self._cr.dbname, 'res.partner', self.env.user.partner_id.id),
-                                {'type': 'simple_notification', 'title': 'WooCommerce Connector', 'message': message,
-                                 'sticky': False, 'warning': True})
+            bus_bus_obj._sendone(self.env.user.partner_id, 'simple_notification',
+                                 {'title': 'WooCommerce Connector', 'message': message, "sticky": False,
+                                  "warning": True})
             self._cr.commit()
         return product_queue_ids
 
-    def get_products_from_woo_v1_v2_v3(self, instance, common_log_id, template_id=False, import_all=False):
+    def get_products_from_woo_v1_v2_v3(self, instance, common_log_id, template_id=False, import_all=False,
+                                       from_date="", to_date=""):
         """
         This method used to call submethods related to import products from Woocommerce to Odoo.
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
-        Migration done by Haresh Mori @ Emipro on date 13 August 2020.
-        Task_Id: 165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
-        results, total_pages = self.get_templates_from_woo(instance, common_log_id, template_id=template_id)
+        results, total_pages = self.get_templates_from_woo(instance, common_log_id, from_date,
+                                                           to_date, template_id=template_id)
         product_queues = []
         if results:
             if int(total_pages) >= 2:
-                start_page = 2
-                if instance.import_product_page_count >= 2:
-                    start_page = instance.import_product_page_count
-                else:
-                    product_queues += self.create_woo_product_queue(results, instance, common_log_id, import_all,
-                                                                  template_id)
-                for page in range(start_page, int(total_pages) + 1):
-                    instance.import_product_page_count = page
-                    results = self.import_all_woo_products(instance, common_log_id, page)
+                product_queues += self.create_woo_product_queue(results, instance, common_log_id, import_all,
+                                                                template_id)
+                for page in range(2, int(total_pages) + 1):
+                    results = self.import_all_woo_products(instance, common_log_id, page, from_date, to_date)
                     if results:
                         product_queues += self.create_woo_product_queue(results, instance, common_log_id, import_all,
                                                                         template_id)
@@ -746,28 +770,30 @@ class WooProductTemplateEpt(models.Model):
                                                                   template_id)
                 if template_id:
                     return product_queue_ids
-                else:
-                    product_queues += product_queue_ids
-        instance.import_product_page_count = 1
+                product_queues += product_queue_ids
         return product_queues
 
-    def get_templates_from_woo(self, instance, common_log_id, template_id):
+    def get_templates_from_woo(self, instance, common_log_id, from_date, to_date, template_id):
         """
         This method used to get product templates from Woocommerce to Odoo.
         @param : self,instance,common_log_id, template_id
         @return: results, total_pages
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 17 August 2020.
         Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id('woo.product.template.ept')
         wc_api = instance.woo_connect()
-
+        from_date, to_date = self.woo_product_convert_dates_by_timezone(instance, from_date, to_date)
+        if from_date and to_date:
+            from_date = str(from_date)[:19].replace(" ", "T")
+            to_date = str(to_date)[:19].replace(" ", "T")
         try:
             if template_id:
                 res = wc_api.get('products/%s' % template_id)
             else:
-                res = wc_api.get('products', params={'per_page': 100})
+                res = wc_api.get('products', params={'per_page': 100, 'after': from_date, 'before': to_date})
         except Exception as error:
             raise UserError(_("Something went wrong while importing Product.\n\nPlease Check your Connection and"
                               "Instance Configuration.\n\n" + str(error)))
@@ -783,6 +809,26 @@ class WooProductTemplateEpt(models.Model):
             results = response
         return results, total_pages
 
+    def woo_product_convert_dates_by_timezone(self, instance, from_date, to_date):
+        """
+        This method converts the dates by timezone of the store to import products.
+        @param instance: Instance.
+        @param from_date: From date for importing products.
+        @param to_date: To date for importing products.
+        @author: Meera Sidapara on Date 25-Feb-2022.
+        """
+        if not from_date:
+            if instance.import_products_last_date:
+                from_date = instance.import_products_last_date - timedelta(days=1)
+            else:
+                from_date = fields.Datetime.now() - timedelta(days=1)
+        to_date = to_date if to_date else fields.Datetime.now()
+
+        from_date = pytz.utc.localize(from_date).astimezone(pytz.timezone(instance.store_timezone))
+        to_date = pytz.utc.localize(to_date).astimezone(pytz.timezone(instance.store_timezone))
+
+        return from_date, to_date
+
     def check_for_existing_queue(self, product_data_queue_line_ids, woo_id, date_modified):
         """
         This method checks for the existing queue line for the product to create new queue line or not.
@@ -790,6 +836,7 @@ class WooProductTemplateEpt(models.Model):
         @param woo_id: Id of product.
         @param date_modified: Last modified date of product.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         flag = already_exist_result = False
         already_exist_results = product_data_queue_line_ids.filtered(lambda x: int(x.woo_synced_data_id) == woo_id)
@@ -815,6 +862,7 @@ class WooProductTemplateEpt(models.Model):
         @param common_log_id: Record of log book.
         @param product_data_queue_line_ids: Queue lines to check.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         total_results = []
@@ -852,6 +900,7 @@ class WooProductTemplateEpt(models.Model):
         @return: variants
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 13 August 2020.
         Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         product_data_queue_obj = self.env['woo.product.data.queue.ept']
         available_queue = product_data_queue_line_ids = False
@@ -873,6 +922,7 @@ class WooProductTemplateEpt(models.Model):
         @return: variants
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 13 August 2020.
         Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         try:
             params = {"per_page": 100}
@@ -904,6 +954,7 @@ class WooProductTemplateEpt(models.Model):
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
         Modify by Haresh Mori on date 31/12/2019 modification adds active_test=False for searching an archived
         product for a webhook process.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         odoo_product = self.env['product.product']
         woo_product_obj = self.env['woo.product.product.ept']
@@ -927,7 +978,7 @@ class WooProductTemplateEpt(models.Model):
         """
         This method prepares data for the attribute lines to add in Product template.
         @param attributes_data: Data of attributes and values.
-        @return:
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         product_attribute_obj = self.env['product.attribute']
         product_attribute_value_obj = self.env['product.attribute.value']
@@ -956,6 +1007,7 @@ class WooProductTemplateEpt(models.Model):
         :param product_template_dict: It contain the product template info with variants and its type is Dictionary
         :param woo_instance: It is the browsable object of woo commerce instance
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         ir_config_parameter_obj = self.env["ir.config_parameter"]
         product_template_obj = self.env['product.template']
@@ -969,7 +1021,7 @@ class WooProductTemplateEpt(models.Model):
         attrib_line_vals = self.prepare_woo_attribute_line_vals(product_template_dict.get('attributes'))
 
         if attrib_line_vals:
-            product_template_values = {'name': template_title, 'type': 'product', "invoice_policy": "order",
+            product_template_values = {'name': template_title, 'detailed_type': 'product', "invoice_policy": "order",
                                        'attribute_line_ids': attrib_line_vals}
             if ir_config_parameter_obj.sudo().get_param("woo_commerce_ept.set_sales_description"):
                 product_template_values.update({"description_sale": product_template_dict.get("description", ""),
@@ -990,6 +1042,7 @@ class WooProductTemplateEpt(models.Model):
         @param template_attributes: Attributes of Woo template.
         @param variation_attributes: Attributes of Woo product.
         @param product_template: Odoo template.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         template_attribute_value_domain = []
         for variation_attribute in variation_attributes:
@@ -997,7 +1050,7 @@ class WooProductTemplateEpt(models.Model):
             attribute_name = variation_attribute.get('name')
             for attribute in template_attributes:
                 if attribute.get('variation') and \
-                    attribute.get('name') and attribute.get('name').replace(" ", "-").lower() == attribute_name:
+                        attribute.get('name') and attribute.get('name').replace(" ", "-").lower() == attribute_name:
                     attribute_name = attribute.get('name')
                     break
             product_attribute = self.env["product.attribute"].get_attribute(attribute_name, "radio", "always", True)
@@ -1025,6 +1078,7 @@ class WooProductTemplateEpt(models.Model):
         @param pricelist_item: Record of the pricelist item.
         @param price: Price in WooCommerce.
         @author: Maulik Barad on Date 06-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         if product_template.company_id and pricelist_item.currency_id.id != \
                 product_template.company_id.currency_id.id:
@@ -1042,6 +1096,7 @@ class WooProductTemplateEpt(models.Model):
         :param sync_price_with_product: It contain the value od price if it is sync or not with product and Its type
         is Boolean
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         odoo_product_obj = self.env['product.product']
         available_odoo_products = {}
@@ -1077,7 +1132,7 @@ class WooProductTemplateEpt(models.Model):
                         else:
                             self.set_woo_product_price(product_template, pricelist_item, price)
         if all(virtual_product_list):
-            product_template.write({'type': 'service'})
+            product_template.write({'detailed_type': 'service'})
         if not available_odoo_products:
             product_template.unlink()
         return available_odoo_products
@@ -1089,6 +1144,7 @@ class WooProductTemplateEpt(models.Model):
         :param woo_categories: It contain the category details of products and and its type is Dict
         :param sync_images: It contain the either True or False and its type is Boolean
         :return: It will return the category ids into list format
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         obj_woo_product_categ = self.env['woo.product.categ.ept']
         categ_ids = []
@@ -1122,6 +1178,7 @@ class WooProductTemplateEpt(models.Model):
         :param woo_instance: It is the browsable object of the woo commerce instance
         :param woo_tags: It contain the tags details of products and and its type is Dict
         :return: It will return the tags ids into list format
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_tags_obj = self.env['woo.tags.ept']
         tag_ids = []
@@ -1151,6 +1208,7 @@ class WooProductTemplateEpt(models.Model):
         :param woo_product: It contain the woo product variant and its type is object
         :return: It will return the message if error is occur
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_skus = []
         importable = True
@@ -1189,6 +1247,7 @@ class WooProductTemplateEpt(models.Model):
         @param import_for_order: True when importing product while order process.
         @param woo_instance: Instance of Woo.
         @param common_log_book_id: Id of Common Log Book.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         if import_for_order:
             woo_category_ids = self.sync_woo_categ_with_product_v1_v2_v3(woo_instance, common_log_book_id,
@@ -1222,6 +1281,7 @@ class WooProductTemplateEpt(models.Model):
         @param woo_product: Record of variant of Woo layer.
         @param woo_template: Record of template of Woo layer.
         @author: Maulik Barad on Date 09-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         existing_common_images = {}
         if woo_product:
@@ -1247,6 +1307,7 @@ class WooProductTemplateEpt(models.Model):
         @param product_dict: Dict for setting the main image in variant.
         @param woo_product: Record of the product in Woo layer.
         @author: Maulik Barad on Date 09-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_image_obj = self.env["woo.product.image.ept"]
         common_product_image_obj = common_product_image = self.env["common.product.image.ept"]
@@ -1280,6 +1341,7 @@ class WooProductTemplateEpt(models.Model):
         @param template_images: Data of images of template.
         @param woo_template: Record of the template in Woo layer.
         @author: Maulik Barad on Date 09-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_image_obj = woo_product_images = self.env["woo.product.image.ept"]
         existing_common_template_images = self.get_existing_images(woo_template)
@@ -1308,21 +1370,19 @@ class WooProductTemplateEpt(models.Model):
             woo_product_images += woo_product_image
         return woo_product_images
 
-    def update_woo_variant_image(self, variant_image, woo_template, woo_product, product_dict, woo_template_image_id):
+    def update_woo_variant_image(self, variant_image, woo_template, woo_product, product_dict):
         """
         This method updates the variant image.
         @param variant_image: Data of image of variant.
         @param woo_template: Record of the template in Woo layer.
         @param woo_product: Record of the template in Woo layer.
         @param product_dict: Dict for setting the main image in variant.
-        @param: Image id of woo template image id.(T-07796)
         @author: Maulik Barad on Date 09-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_image_obj = self.env["woo.product.image.ept"]
         image_id = variant_image["id"]
         url = variant_image.get('src')
-        if image_id == woo_template_image_id:
-            return woo_product_image_obj
         existing_common_variant_images = self.get_existing_images(woo_template, woo_product)
 
         woo_product_image = woo_product_image_obj.search([("woo_variant_id", "=", woo_product.id),
@@ -1349,18 +1409,18 @@ class WooProductTemplateEpt(models.Model):
         return woo_product_image
 
     @api.model
-    def update_product_images(self, template_images, variant_image, woo_template, woo_product, woo_instance,
-                              template_image_updated, product_dict={}):
+    def update_product_images(self, template_images, variant_image, woo_template, woo_product, template_image_updated,
+                              product_dict={}):
         """
         Imports/Updates images of Woo template and variant.
         @param template_images: Images data of Woo template.
         @param variant_image: Image data of Woo variant.
         @param woo_template: Template in Woo layer.
         @param woo_product: Variant in Woo layer.
-        @param woo_instance: Instance of Woo.
         @param template_image_updated: True when images of template is updated.
         @param product_dict: Dict for setting the main image in variant.
         @author: Maulik Barad on Date 12-Dec-2019.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_image_obj = need_to_remove = self.env["woo.product.image.ept"]
 
@@ -1370,27 +1430,28 @@ class WooProductTemplateEpt(models.Model):
                                                                    ("woo_variant_id", "=", False)])
 
             need_to_remove += (all_woo_product_images - woo_product_images)
-            _logger.info("Images Updated for Template {0}".format(woo_template.name))
+            _logger.info("Images Updated for Template %s", woo_template.name)
         if variant_image:
-            woo_template_image_id = template_images and template_images[0].get('id') or False
-            woo_product_image = self.update_woo_variant_image(variant_image, woo_template, woo_product, product_dict, woo_template_image_id)
+            woo_product_image = self.update_woo_variant_image(variant_image, woo_template, woo_product, product_dict)
             all_woo_product_images = woo_product_image_obj.search([("woo_template_id", "=", woo_template.id),
                                                                    ("woo_variant_id", "=", woo_product.id)])
 
             need_to_remove += (all_woo_product_images - woo_product_image)
         need_to_remove.unlink()
-        _logger.info("Images Updated for Variant {0}".format(woo_product.name))
+        _logger.info("Images Updated for Variant %s", woo_product.name)
         return True
 
     @api.model
     def sync_products(self, product_data_queue_lines, woo_instance, common_log_book_id, skip_existing_products=False,
-                      order_queue_line=False, is_process_from_queue=True):
+                      order_queue_line=False):
         """
         This method used to Creates/Updates products from Woocommerce to Odoo.
-        @param : self, product_data_queue_lines, woo_instance, common_log_book_id,skip_existing_products=False, order_queue_line=False
+        @param : self, product_data_queue_lines, woo_instance, common_log_book_id,skip_existing_products=False,
+        order_queue_line=False
         @return: True
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 21 August 2020.
         Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         queue_counter = 0
@@ -1399,9 +1460,9 @@ class WooProductTemplateEpt(models.Model):
             self.env["woo.process.import.export"].sync_woo_attributes(woo_instance)
 
         for product_data_queue_line in product_data_queue_lines:
-            if is_process_from_queue and queue_counter == 10:
+            if queue_counter == 10:
                 if not order_queue_line:
-                    product_queue_id = product_data_queue_line and product_data_queue_line.queue_id or False
+                    product_queue_id = product_data_queue_line.queue_id if product_data_queue_line else False
                     if product_queue_id:
                         product_queue_id.is_process_queue = True
                 self._cr.commit()
@@ -1413,8 +1474,8 @@ class WooProductTemplateEpt(models.Model):
                 product_data_queue_line)
             woo_product_template_id, template_title = data.get("id"), data.get("name")
             if data.get('type') not in ['simple', 'variable', 'bundle', 'grouped', 'external']:
-                message = """The default WooCommerce does not support this product type. Product: %s and received product type: %s.""" % (
-                    template_title, data.get('type'))
+                message = """The default WooCommerce does not support this product type. Product: %s and received
+                product type: %s.""" % (template_title, data.get('type'))
                 common_log_line_obj.woo_create_product_log_line(message, model_id,
                                                                 product_data_queue_line if not order_queue_line
                                                                 else order_queue_line,
@@ -1434,16 +1495,34 @@ class WooProductTemplateEpt(models.Model):
                                                                skip_existing_products)
                 if new_woo_template:
                     woo_template = new_woo_template
+                else:
+                    continue
             if data["type"] == "simple" or data["type"] == "bundle":
                 new_woo_template = self.simple_product_sync(woo_instance, data, common_log_book_id, product_queue_id,
                                                             product_data_queue_line, template_updated,
                                                             skip_existing_products, order_queue_line)
-                if not new_woo_template:
-                    continue
-                elif not isinstance(new_woo_template, bool):
+                if not isinstance(new_woo_template, bool):
                     woo_template = new_woo_template
+                elif not new_woo_template:
+                    continue
             if not order_queue_line:
                 if woo_template:
+                    # WooCommerce Meta Mapping for import Products
+                    woo_operation = 'import_product'
+                    meta_mapping_ids = woo_instance.meta_mapping_ids.filtered(
+                        lambda meta: meta.woo_operation == woo_operation)
+                    product_template = woo_template.product_tmpl_id
+                    product_variants = woo_template.woo_product_ids.mapped('product_id')
+                    operation_type = "import"
+                    if meta_mapping_ids and meta_mapping_ids.filtered(
+                            lambda meta: meta.model_id.model == product_template._name):
+                        woo_instance.with_context(woo_operation=woo_operation).meta_field_mapping(data, operation_type,
+                                                                                                  product_template)
+
+                    if meta_mapping_ids and meta_mapping_ids.filtered(
+                            lambda meta: meta.model_id.model == product_variants._name):
+                        woo_instance.with_context(woo_operation=woo_operation).meta_field_mapping(data, operation_type,
+                                                                                                  product_variants)
                     product_data_queue_line.write({"state": "done", "last_process_date": datetime.now()})
                 else:
                     message = """Misconfiguration at Woocommerce store for product named - '%s'.
@@ -1468,6 +1547,7 @@ class WooProductTemplateEpt(models.Model):
         @return: data,product_queue_id,sync_category_and_tags
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 24 August 2020.
         Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         sync_category_and_tags = False
         if order_queue_line or isinstance(product_data_queue_line, dict):
@@ -1483,11 +1563,13 @@ class WooProductTemplateEpt(models.Model):
         return data, product_queue_id, product_data_queue_line, sync_category_and_tags
 
     def prepare_template_vals(self, woo_instance, product_response):
-        """ This method used Prepare a template vals.
-            @param : self,data
-            @return: template_info_vals
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 21 August 2020.
-            Task_id:165892
+        """
+        This method used Prepare a template vals.
+        @param : self,data
+        @return: template_info_vals
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 21 August 2020.
+        Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         template_info_vals = {
             "name": product_response.get("name"),
@@ -1495,8 +1577,8 @@ class WooProductTemplateEpt(models.Model):
             "woo_instance_id": woo_instance.id,
             "woo_short_description": product_response.get("short_description", ""),
             "woo_description": product_response.get("description", ""),
-            "website_published": True if product_response["status"] == "publish" else False,
-            "taxable": True if product_response["tax_status"] == "taxable" else False,
+            "website_published": product_response["status"] == "publish",
+            "taxable": product_response["tax_status"] == "taxable",
             "woo_categ_ids": product_response.get("categories"),
             "woo_tag_ids": product_response.get("tags"),
             "total_variants_in_woo": len(product_response["variations"]),
@@ -1510,11 +1592,13 @@ class WooProductTemplateEpt(models.Model):
         return template_info_vals
 
     def available_woo_odoo_products(self, woo_instance, woo_template, product_response):
-        """ This method used to prepare a dictionary of available odoo and WooCommerce products.
-            @param : self,woo_instance,woo_template,product_response
-            @return: available_woo_products,available_odoo_products
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 21 August 2020.
-            Task_id:165892
+        """
+        This method used to prepare a dictionary of available odoo and WooCommerce products.
+        @param : self,woo_instance,woo_template,product_response
+        @return: available_woo_products,available_odoo_products
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 21 August 2020.
+        Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         available_woo_products = {}
         available_odoo_products = {}
@@ -1531,11 +1615,13 @@ class WooProductTemplateEpt(models.Model):
         return available_woo_products, available_odoo_products, odoo_template
 
     def prepare_woo_variant_vals(self, woo_instance, variant, template_title=""):
-        """ This method used to prepare woo variant vals.
-            @param : self,woo_instance,variant,template_title
-            @return: available_woo_products,available_odoo_products
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 21 August 2020.
-            Task_id:165892
+        """
+        This method used to prepare woo variant vals.
+        @param : self,woo_instance,variant,template_title
+        @return: available_woo_products,available_odoo_products
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 21 August 2020.
+        Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         if not template_title:
             template_title = variant.get("name")
@@ -1558,11 +1644,14 @@ class WooProductTemplateEpt(models.Model):
     def template_attribute_process(self, woo_instance, odoo_template, variant, template_title, common_log_book_id, data,
                                    product_data_queue_line, order_queue_line):
         """
-        This method use to create new attribute if customer only add the attribute value other wise it will create a mismatch logs.
-        @param :self,woo_instance,odoo_template,variant,template_title,common_log_book_id,data,product_data_queue_line,order_queue_line
+        This method use to create new attribute if customer only add the attribute value other wise it will create a
+        mismatch logs.
+        @param :self,woo_instance,odoo_template,variant,template_title,common_log_book_id,data,product_data_queue_line,
+        order_queue_line
         @return: odoo_product, True
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 21 August 2020.
         Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id(self._name)
@@ -1579,8 +1668,8 @@ class WooProductTemplateEpt(models.Model):
             odoo_attributes.sort()
             if odoo_attributes != woo_attribute_ids:
                 message = """- Product %s has tried adding a new attribute for sku '%s' in Odoo.
-                          - System will not allow adding new attributes to a product.""" % (
-                    template_title, variant.get("sku"))
+                          - System will not allow adding new attributes to a product.""" % (template_title,
+                                                                                            variant.get("sku"))
                 common_log_line_obj.woo_create_product_log_line(message, model_id,
                                                                 product_data_queue_line if not order_queue_line else
                                                                 order_queue_line, common_log_book_id)
@@ -1612,7 +1701,7 @@ class WooProductTemplateEpt(models.Model):
                 odoo_product.default_code = variant["sku"]
             return odoo_product
 
-        template_vals = {"name": template_title, "type": "product", "default_code": variant["sku"]}
+        template_vals = {"name": template_title, "detailed_type": "product", "default_code": variant["sku"]}
         if self.env["ir.config_parameter"].sudo().get_param("woo_commerce_ept.set_sales_description"):
             template_vals.update({"description_sale": variant.get("description", "")})
 
@@ -1629,6 +1718,7 @@ class WooProductTemplateEpt(models.Model):
         @return: woo_template
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 24 August 2020.
         Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         model_id = common_log_line_obj.get_model_id(self._name)
@@ -1693,7 +1783,7 @@ class WooProductTemplateEpt(models.Model):
                     woo_template_vals = self.prepare_woo_template_vals(template_info, odoo_template.id,
                                                                        sync_category_and_tags, woo_instance,
                                                                        common_log_book_id)
-                    if odoo_template.type == 'service':
+                    if odoo_template.detailed_type == 'service':
                         woo_template_vals.update({'is_virtual_product': True})
                     woo_template = self.create(woo_template_vals)
                 elif not template_updated:
@@ -1723,10 +1813,11 @@ class WooProductTemplateEpt(models.Model):
                                                                        product_response,
                                                                        product_data_queue_line,
                                                                        order_queue_line)
-                    if not new_odoo_product:
-                        break
-                    elif not isinstance(new_odoo_product, bool):
+                    if not isinstance(new_odoo_product, bool):
                         odoo_product = new_odoo_product
+                    elif not new_odoo_product:
+                        woo_template = False
+                        break
 
                 variant_info.update({"product_id": odoo_product.id,
                                      "woo_template_id": woo_template.id})
@@ -1750,7 +1841,7 @@ class WooProductTemplateEpt(models.Model):
                     product_dict.update(
                         {'product_tmpl_id': woo_template.product_tmpl_id, 'is_image': True})
                 self.update_product_images(product_response["images"], variant["image"], woo_template, woo_product,
-                                           woo_instance, template_images_updated, product_dict)
+                                           template_images_updated, product_dict)
                 template_images_updated = True
         return woo_template
 
@@ -1763,6 +1854,7 @@ class WooProductTemplateEpt(models.Model):
         @return: True, Woo_template
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 22 August 2020.
         Task_id:165892
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env["common.log.lines.ept"]
         woo_template = odoo_template = sync_category_and_tags = False
@@ -1778,7 +1870,7 @@ class WooProductTemplateEpt(models.Model):
         if order_queue_line:
             sync_category_and_tags = True
         if not product_sku:
-            message = """Value of SKU/Internal Reference is not set for product '%s', in the Woocommerce store.""", \
+            message = """Value of SKU/Internal Reference is not set for product '%s', in the Woocommerce store.""" % \
                       template_title
             common_log_line_obj.woo_create_product_log_line(message, model_id,
                                                             product_data_queue_line if not order_queue_line
@@ -1818,14 +1910,14 @@ class WooProductTemplateEpt(models.Model):
                     woo_weight = float(product_response.get("weight") or "0.0")
                     weight = self.convert_weight_by_uom(woo_weight, woo_instance, import_process=True)
                     template_vals = {
-                        "name": template_title, "type": "product", "default_code": product_response["sku"],
+                        "name": template_title, "detailed_type": "product", "default_code": product_response["sku"],
                         "weight": weight, "invoice_policy": "order"
                     }
                     if self.env["ir.config_parameter"].sudo().get_param("woo_commerce_ept.set_sales_description"):
                         template_vals.update({"description_sale": product_response.get("description", ""),
                                               "description": product_response.get("short_description", "")})
                     if product_response["virtual"]:
-                        template_vals.update({"type": "service"})
+                        template_vals.update({"detailed_type": "service"})
                     odoo_template = self.env["product.template"].create(template_vals)
                     odoo_product = odoo_template.product_variant_ids
                 if not odoo_template:
@@ -1842,9 +1934,9 @@ class WooProductTemplateEpt(models.Model):
                 woo_template_vals = self.prepare_woo_template_vals(template_info, odoo_template.id,
                                                                    sync_category_and_tags, woo_instance,
                                                                    common_log_book_id)
-                if product_response["virtual"] and odoo_template.type == 'service':
+                if product_response["virtual"] and odoo_template.detailed_type == 'service':
                     woo_template_vals.update({"is_virtual_product": True})
-                    odoo_template.write({"type": "service"})
+                    odoo_template.write({"detailed_type": "service"})
                 woo_template = self.create(woo_template_vals)
 
             variant_info.update({"product_id": odoo_product.id, "woo_template_id": woo_template.id})
@@ -1859,7 +1951,7 @@ class WooProductTemplateEpt(models.Model):
         if update_price:
             woo_instance.woo_pricelist_id.set_product_price_ept(woo_product.product_id.id, variant_price)
         if update_images and isinstance(product_queue_id, str) and product_queue_id == 'from Order':
-            self.update_product_images(product_response["images"], {}, woo_template, woo_product, woo_instance, False)
+            self.update_product_images(product_response["images"], {}, woo_template, woo_product, False)
         if woo_template:
             return woo_template
         return True
@@ -1877,7 +1969,7 @@ class WooProductTemplateEpt(models.Model):
         :param update_basic_detail: It contain wither True or False and its type is Boolean
         :param common_log_id: It contain the log book id and its type is object
         :return: It will return True if the product update process is successfully completed
-        Migration done by Haresh Mori @ Emipro on date 19 September 2020 .
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
 
         common_log_line_obj = self.env['common.log.lines.ept']
@@ -1945,12 +2037,13 @@ class WooProductTemplateEpt(models.Model):
         :return: Boolean
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 16-11-2019.
         :Task id: 156886
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_instance_id = ctx.get('woo_instance_id', False)
         instance = self.woo_instance_id.browse(woo_instance_id)
-        if not instance:
-            return True
-        self.update_stock(instance, instance.last_inventory_update_time)
+        if instance:
+            self.update_stock(instance, instance.last_inventory_update_time)
+
         return True
 
     def update_stock(self, instance, export_stock_from_date):
@@ -1959,8 +2052,7 @@ class WooProductTemplateEpt(models.Model):
         @parameter : self, instance, export_stock_from_date
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 16-11-2019.
         :Task id: 156886
-        Migration done by Haresh Mori @ Emipro on date 10 September 2020 .
-        Task_Id: 165895
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         product_obj = self.env['product.product']
         woo_product_product_obj = self.env['woo.product.product.ept']
@@ -1994,8 +2086,7 @@ class WooProductTemplateEpt(models.Model):
                     continue
                 if key in gallery_img_keys:
                     continue
-                else:
-                    gallery_img_keys.update({key: br_gallery_image.id})
+                gallery_img_keys.update({key: br_gallery_image.id})
                 res = img_file_upload.upload_image(instance, br_gallery_image.image,
                                                    "%s_%s_%s" % (
                                                        template.name, template.categ_id.name,
@@ -2020,6 +2111,7 @@ class WooProductTemplateEpt(models.Model):
         :param attribute: It contain the product attribute
         :return: It will return the attribute id into Dict Format.
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env['common.log.lines.ept']
         wc_api = instance.woo_connect()
@@ -2076,6 +2168,7 @@ class WooProductTemplateEpt(models.Model):
         :return: It will return the attributes and Its type is List of Dictionary and return True
                 or False for is_variable field
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         position = 0
         is_variable = False
@@ -2121,7 +2214,7 @@ class WooProductTemplateEpt(models.Model):
         :param model_id: It contain the id of the model class
         :return: It will return the updated data dictionary
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
-        Migration done by Haresh Mori @ Emipro on date 21 September 2020 .
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env['common.log.lines.ept']
         wc_api = instance.woo_connect()
@@ -2226,7 +2319,7 @@ class WooProductTemplateEpt(models.Model):
         :param data: It contain the basic detail of woo product template and Its type is Dict
         :return: It will return the updated product dictionary
         @author: Dipak Gogiya @Emipro Technologies Pvt. Ltd
-        Migration done by Haresh Mori @ Emipro on date 21 September 2020 .
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         instance = template.woo_instance_id
         flag = False
@@ -2267,7 +2360,7 @@ class WooProductTemplateEpt(models.Model):
         :param common_log_id: It contain the browsable object of common log book ept model
         :return: It will return the True if the process is successfully complete
          @author: Dipak Gogiya @Emipro Technologies Pvt.Ltd
-         Migration done by Haresh Mori @ Emipro on date 15 September 2020 .
+         Migrated Maulik Barad on Date 07-Oct-2021.
         """
         start = time.time()
         wc_api = instance.woo_connect()
@@ -2277,12 +2370,6 @@ class WooProductTemplateEpt(models.Model):
             update_image = False
         for woo_template in woo_templates:
             _logger.info("Start the export woo product: '%s'", woo_template.name)
-            if woo_template.woo_categ_ids.parent_id:
-                woo_template.woo_categ_ids|=woo_template.woo_categ_ids.parent_id
-                if  woo_template.woo_categ_ids.parent_id.parent_id:
-                    woo_template.woo_categ_ids|=woo_template.woo_categ_ids.parent_id.parent_id
-                    if  woo_template.woo_categ_ids.parent_id.parent_id.parent_id:
-                        woo_template.woo_categ_ids|=woo_template.woo_categ_ids.parent_id.parent_id.parent_id
             data = self.prepare_product_data(woo_template, publish, update_price, update_image, basic_detail,
                                              common_log_id, model_id)
             variants = data.get('variations') or []
@@ -2309,7 +2396,7 @@ class WooProductTemplateEpt(models.Model):
             _logger.info("End the export woo product: '%s' process", woo_template.name)
             self._cr.commit()
         end = time.time()
-        _logger.info("Exported total templates  %s  in %s seconds.", len(woo_templates), str(end - start))
+        _logger.info("Exported %s templates in %s seconds.", len(woo_templates), str(end - start))
         return True
 
     def add_woo_category_and_tags(self, data):
@@ -2317,6 +2404,7 @@ class WooProductTemplateEpt(models.Model):
         This method updates data dict with category and tags for exporting products.
         @param data: Dictionary of product data.
         @author: Maulik Barad on Date 12-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_categ_ids = list(map(int, self.woo_categ_ids.mapped("woo_categ_id")))
         if all(woo_categ_ids):
@@ -2338,6 +2426,7 @@ class WooProductTemplateEpt(models.Model):
         @return: data
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 15 September 2020 .
         Task_id: 165897
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         data = {}
         template = woo_template.product_tmpl_id
@@ -2371,7 +2460,7 @@ class WooProductTemplateEpt(models.Model):
                         else:
                             variation_data.update(self.get_product_price(instance, variant))
                     variations.append(variation_data)
-                default_att = variations and variations[0].get('attributes') or []
+                default_att = variations[0].get('attributes') if variations else []
                 data.update({'attributes': attributes, 'default_attributes': default_att, 'variations': variations})
                 if data.get('type') == 'simple':
                     data.update({'sku': str(variant.default_code),
@@ -2396,6 +2485,7 @@ class WooProductTemplateEpt(models.Model):
         @param weight: Weight in float.
         @param instance: Instance of Woo.
         @param import_process: In which process, we are converting the weight import or export.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_weight_uom = instance.weight_uom_id
         product_weight_uom = self.env["product.template"]._get_weight_uom_id_from_ir_config_parameter()
@@ -2408,11 +2498,13 @@ class WooProductTemplateEpt(models.Model):
         return weight
 
     def export_woo_template(self, woo_template, data, common_log_id):
-        """ This method use to export woo template in Woo commerce store.
-            @param : self
-            @return: response
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 16 September 2020 .
-            Task_id: 165897
+        """
+        This method use to export woo template in Woo commerce store.
+        @param : self
+        @return: response
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 16 September 2020 .
+        Task_id: 165897
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         instance = woo_template.woo_instance_id
         wc_api = instance.woo_connect()
@@ -2423,7 +2515,8 @@ class WooProductTemplateEpt(models.Model):
         try:
             new_product = wc_api.post('products', data)
         except Exception as error:
-            return False
+            raise UserError(_("Something went wrong while Exporting Product.\n\nPlease Check your Connection and "
+                              "Instance Configuration.\n\n" + str(error)))
 
         response = self.check_woocommerce_response(new_product, "Export Stock", model_id, common_log_id, template)
         if not isinstance(response, dict):
@@ -2445,6 +2538,7 @@ class WooProductTemplateEpt(models.Model):
         @return: response_variations
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 16 September 2020 .
         Task_id: 165897
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env['common.log.lines.ept']
         model_id = common_log_line_obj.get_model_id(self._name)
@@ -2475,10 +2569,11 @@ class WooProductTemplateEpt(models.Model):
     def woo_update_template_variant_data(self, response_variations, woo_template, common_log_id, response, woo_tmpl_id,
                                          publish):
         """
-        This method uses to write data in the woo template and its variants which data receive from the Woo-commerce store.
+        This method uses to update the woo template and its variants which data receive from the WooCommerce store.
         @param : self
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 16 September 2020 .
         Task_id: 165897
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         common_log_line_obj = self.env['common.log.lines.ept']
         template = woo_template.product_tmpl_id
@@ -2506,7 +2601,7 @@ class WooProductTemplateEpt(models.Model):
             'woo_tmpl_id': woo_tmpl_id, 'created_at': created_at or False,
             'updated_at': updated_at or False, 'exported_in_woo': True,
             'total_variants_in_woo': total_variants_in_woo,
-            "website_published": True if publish == 'publish' else False
+            "website_published": publish == 'publish'
         }
         woo_template.write(tmpl_data)
         return True
@@ -2517,6 +2612,7 @@ class WooProductTemplateEpt(models.Model):
         @param response_variation: Data returned from WooCommerce.
         @param woo_template: Record of the template of Woo layer.
         @author: Maulik Barad on Date 09-Nov-2020.
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_obj = self.env['woo.product.product.ept']
 
@@ -2563,6 +2659,7 @@ class ProductProductEpt(models.Model):
         :parameter: self
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 09/12/2019.
         :Task id: 158502
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         with_one_active = self.filtered(lambda x: len(x.woo_template_id.woo_product_ids) == 1)
         for product in with_one_active:

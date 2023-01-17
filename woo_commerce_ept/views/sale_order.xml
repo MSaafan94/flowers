@@ -40,6 +40,8 @@
         <field name="inherit_id" ref="sale.view_sales_order_filter"/>
         <field name="arch" type="xml">
             <search>
+                <field name="woo_order_number" string="Woo Order Number"/>
+                <field name="woo_order_id" string="Woo Order Ref"/>
                 <filter string="Updated in Woo" name="order_status_updated" domain="[('updated_in_woo', '=', True)]"/>
                 <filter string="Not updated in Woo" name="order_status_not_updated"
                         domain="[('updated_in_woo', '!=', True)]"/>
@@ -207,11 +209,9 @@
 
     <menuitem id="woo_sales_menu" name="Sales" parent="woo_commerce_ept.woo_commerce_main_menu" sequence="2"/>
 
-    <menuitem id="woo_orders" parent="woo_sales_menu" sequence="2" name="Orders"/>
+    <menuitem id="woo_menu_item_orders" name="Orders" parent="woo_sales_menu" action="action_woo_orders" sequence="2"/>
 
-    <menuitem id="woo_menu_item_orders" name="Orders" parent="woo_orders" action="action_woo_orders" sequence="2"/>
-
-    <menuitem id="woo_menu_item_quotations" name="Quotations" parent="woo_orders" action="action_woo_quotations"
+    <menuitem id="woo_menu_item_quotations" name="Quotations" parent="woo_sales_menu" action="action_woo_quotations"
               sequence="1"/>
 
 </odoo>

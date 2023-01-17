@@ -27,18 +27,18 @@
                                 <b>
                                     <ol>
                                         <li>
-                                            Products without Internal Reference (SKU) will not be export in CSV file and
-                                            WooCommerce Product Layer.
+                                            Products without Internal Reference (SKU) will not be export in CSV/XLSX
+                                            file and WooCommerce Product Layer.
                                         </li>
                                         <li>
                                             Please do not change values in these three columns 'PRODUCT_TEMPLATE_ID',
-                                            'PRODUCT_ID' and 'CATEGORY_ID' in CSV file.
+                                            'PRODUCT_ID' and 'CATEGORY_ID' in CSV/XLSX file.
                                         </li>
                                         <li>
-                                            You can import CSV file here: Woocommerce => Products =>Import Products
+                                            You can import CSV/XLSX file here: Woocommerce => Operations => Map Products
                                         </li>
                                         <li>
-                                            Do not change the name of the Header fields of csv file
+                                            Do not change the name of the Header fields of csv/xlsx file
                                         </li>
                                         <li>
                                             Only change the Lower case fields value as per your need
@@ -60,7 +60,7 @@
 
     <!-- Action of Prepare Product For Export in Woo of product template model @Dipak Gogiya -->
     <record id="action_wizard_woo_prepare_product_for_export" model="ir.actions.act_window">
-        <field name="name">WooCommerce - Export Products</field>
+        <field name="name">WooCommerce - Prepare Product for Export</field>
         <field name="res_model">woo.prepare.product.for.export.ept</field>
         <field name="binding_model_id" ref="model_product_template"/>
         <field name="binding_view_types">form,list</field>

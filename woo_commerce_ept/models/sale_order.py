@@ -3,7 +3,7 @@
 import ast
 import logging
 import time
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 import pytz
 from odoo import models, fields, api, _
@@ -20,10 +20,11 @@ class SaleOrder(models.Model):
     """
     _inherit = "sale.order"
 
-    def _get_woo_order_status(self):
+    def _compute_woo_order_status(self):
         """
         Compute updated_in_woo of order from the pickings.
         @author: Maulik Barad on Date 04-06-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for order in self:
             if order.woo_instance_id:
@@ -47,7 +48,7 @@ class SaleOrder(models.Model):
                     inner join sale_order so on so.procurement_group_id=sp.group_id                   
                     inner join stock_location on stock_location.id=sp.location_dest_id and stock_location.usage='customer'
                     where sp.updated_in_woo %s true and sp.state != 'cancel'
-                    """ % (operator)
+                    """ % operator
         if operator == '=':
             query += """union all
                     select so.id from sale_order as so
@@ -69,8 +70,8 @@ class SaleOrder(models.Model):
     woo_coupon_ids = fields.Many2many("woo.coupons.ept", string="Coupons", copy=False)
     woo_trans_id = fields.Char("Transaction ID", help="WooCommerce Order Transaction Id", copy=False)
     woo_customer_ip = fields.Char("Customer IP", help="WooCommerce Customer IP Address", copy=False)
-    updated_in_woo = fields.Boolean("Updated In woo", compute="_get_woo_order_status", search="_search_woo_order_ids",
-                                    copy=False)
+    updated_in_woo = fields.Boolean("Updated In woo", compute="_compute_woo_order_status",
+                                    search="_search_woo_order_ids", copy=False)
     canceled_in_woo = fields.Boolean("Canceled In WooCommerce", default=False, copy=False)
     woo_status = fields.Selection([("pending", "Pending"), ("processing", "Processing"),
                                    ("on-hold", "On hold"), ("completed", "Completed"),
@@ -81,18 +82,21 @@ class SaleOrder(models.Model):
     _sql_constraints = [('_woo_sale_order_unique_constraint', 'unique(woo_order_id,woo_instance_id,woo_order_number)',
                          "Woocommerce order must be unique")]
 
-    def create_woo_order_data_queue(self, woo_instance, orders_data, created_by="import"):
+    def create_woo_order_data_queue(self, woo_instance, orders_data, order_type, created_by="import"):
         """
         Creates order data queues from the data got from API.
-        @param created_by: By which process, we are creating the queues.
         @param woo_instance: Instance of Woocommerce.
         @param orders_data: Imported JSON data of orders.
+        @param created_by: By which process, we are creating the queues.
+        @param order_type: Type of order for which the queue is being created.
         @author: Maulik Barad on Date 04-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         order_queues_list = order_data_queue_obj = self.env["woo.order.data.queue.ept"]
         bus_bus_obj = self.env['bus.bus']
         while orders_data:
-            vals = {"instance_id": woo_instance.id, "created_by": created_by}
+            vals = {"instance_id": woo_instance.id, "created_by": created_by,
+                    "queue_type": "shipped" if order_type == "completed" else "unshipped"}
             data = orders_data[:50]
             if data:
                 order_data_queue = order_data_queue_obj.create(vals)
@@ -101,26 +105,31 @@ class SaleOrder(models.Model):
                 order_data_queue.create_woo_data_queue_lines(data)
                 _logger.info("Lines added in Order queue %s.", order_data_queue.name)
                 del orders_data[:50]
-                message = "Order Queue created %s", order_data_queue.name
-                bus_bus_obj.sendone((self._cr.dbname, 'res.partner', self.env.user.partner_id.id),
-                                    {'type': 'simple_notification',
-                                     'title': 'WooCommerce Connector', 'message': message,
-                                     'sticky': False, 'warning': True})
+                message = "Order Queue created %s" % order_data_queue.name
+                bus_bus_obj._sendone(self.env.user.partner_id, 'simple_notification',
+                                     {'title': _('WooCommerce Connector'), 'message': _(message), "sticky": False,
+                                      "warning": True})
                 self._cr.commit()
 
         return order_queues_list
 
-    def woo_convert_dates_by_timezone(self, instance, from_date, to_date):
+    def woo_convert_dates_by_timezone(self, instance, from_date, to_date, order_type):
         """
         This method converts the dates by timezone of the store to import orders.
         @param instance: Instance.
         @param from_date: From date for importing orders.
         @param to_date: To date for importing orders.
+        @param order_type: Order type for check from date.
         @author: Maulik Barad on Date 03-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if not from_date:
-            if instance.last_order_import_date:
+            if order_type == 'completed' and instance.last_completed_order_import_date:
+                from_date = instance.last_completed_order_import_date - timedelta(days=1)
+            elif instance.last_order_import_date:
                 from_date = instance.last_order_import_date - timedelta(days=1)
+            elif order_type == 'cancelled' and instance.last_cancel_order_import_date:
+                from_date = instance.last_cancel_order_import_date - timedelta(days=1)
             else:
                 from_date = fields.Datetime.now() - timedelta(days=1)
         to_date = to_date if to_date else fields.Datetime.now()
@@ -138,7 +147,7 @@ class SaleOrder(models.Model):
         @param from_date: Orders will be imported which are created after this date.
         @param to_date: Orders will be imported which are created before this date.
         @author: Maulik Barad on Date 04-Nov-2019.
-        Migration done by Haresh Mori @ Emipro on date 1 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_instance_obj = self.env["woo.instance.ept"]
         start = time.time()
@@ -148,16 +157,21 @@ class SaleOrder(models.Model):
         if not woo_instance.active:
             return False
 
-        from_date, to_date = self.woo_convert_dates_by_timezone(woo_instance, from_date, to_date)
+        from_date, to_date = self.woo_convert_dates_by_timezone(woo_instance, from_date, to_date, order_type)
 
         params = {"after": str(from_date)[:19], "before": str(to_date)[:19], "per_page": 100, "page": 1,
                   "order": "asc", "status": ",".join(map(str, woo_instance.import_order_status_ids.mapped("status")))}
         if order_type == 'completed':
             params["status"] = "completed"
+        elif order_type == 'cancelled':
+            params["status"] = "cancelled"
         order_data_queue = self.get_order_data_wc_v3(params, woo_instance, order_type=order_type)
 
         if order_type == 'completed':
             woo_instance.last_completed_order_import_date = to_date.astimezone(pytz.timezone("UTC")).replace(
+                tzinfo=None)
+        elif order_type == 'cancelled':
+            woo_instance.last_cancel_order_import_date = to_date.astimezone(pytz.timezone("UTC")).replace(
                 tzinfo=None)
         else:
             woo_instance.last_order_import_date = to_date.astimezone(pytz.timezone("UTC")).replace(tzinfo=None)
@@ -166,17 +180,17 @@ class SaleOrder(models.Model):
 
         return order_data_queue
 
-    def import_all_orders(self, total_pages, params, wc_api, orders_data, order_type, woo_instance):
+    def import_all_orders(self, total_pages, params, wc_api, woo_instance, order_type):
         """
         This method is used to import orders if there are more one page data.
+        @param order_type: Type of order.
         @param total_pages: Total pages of data.
         @param params: Parameters to pass in API.
         @param wc_api: WC API Object.
-        @param orders_data: First page order data.
-        @param order_type: Type of order to import.
         @param woo_instance: Record of Instance.
         @return: All data of orders and Ids of the order data queue.
         @author: Maulik Barad on Date 02-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         order_queue_ids = []
         for page in range(2, int(total_pages) + 1):
@@ -188,12 +202,9 @@ class SaleOrder(models.Model):
                                   "Instance Configuration.\n\n" + str(error)))
 
             orders_response = response.json()
-            if order_type == 'completed':
-                order_queue_ids += self.create_woo_order_data_queue(woo_instance, orders_response).ids
-            else:
-                orders_data += orders_response
+            order_queue_ids += self.create_woo_order_data_queue(woo_instance, orders_response, order_type).ids
 
-        return orders_data, order_queue_ids
+        return order_queue_ids
 
     @api.model
     def get_order_data_wc_v3(self, params, woo_instance, order_type):
@@ -201,7 +212,7 @@ class SaleOrder(models.Model):
         This method used to get order response from Woocommerce to Odoo.
         @param : self, params, woo_instance,order_type
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 3 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         bus_bus_obj = self.env['bus.bus']
         common_log_book_obj = self.env['common.log.book.ept']
@@ -231,22 +242,19 @@ class SaleOrder(models.Model):
         if not orders_data:
             message = "No orders Found between %s and %s for %s" % (
                 params.get('after'), params.get('before'), woo_instance.name)
-            bus_bus_obj.sendone((self._cr.dbname, 'res.partner', self.env.user.partner_id.id),
-                                {'type': 'simple_notification', 'title': 'WooCommerce Connector',
-                                 'message': message, 'sticky': False, 'warning': True})
+            bus_bus_obj._sendone(self.env.user.partner_id, 'simple_notification',
+                                 {'title': 'WooCommerce Connector', 'message': message, "sticky": False,
+                                  "warning": True})
             _logger.info(message)
-        if order_type == 'completed':
-            order_queue_ids = self.create_woo_order_data_queue(woo_instance, orders_data).ids
-            order_queues += order_queue_ids
+        if order_type == 'cancelled':
+            return orders_data
+        order_queue_ids = self.create_woo_order_data_queue(woo_instance, orders_data, order_type).ids
+        order_queues += order_queue_ids
 
         total_pages = response.headers.get("X-WP-TotalPages")
         if int(total_pages) > 1:
-            orders_data, order_queue_ids = self.import_all_orders(total_pages, params, wc_api, orders_data, order_type,
-                                                                  woo_instance)
+            order_queue_ids = self.import_all_orders(total_pages, params, wc_api, woo_instance, order_type)
             order_queues += order_queue_ids
-
-        if order_type != 'completed':
-            self.create_woo_orders(orders_data, common_log_book_id)
 
         if not common_log_book_id.log_lines:
             common_log_book_id.unlink()
@@ -260,7 +268,7 @@ class SaleOrder(models.Model):
         @param : self, instance, order
         @return: payment_gateway
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 3 September 2020.
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         payment_gateway_obj = self.env["woo.payment.gateway"]
         code = order_response.get("payment_method", "")
@@ -268,14 +276,13 @@ class SaleOrder(models.Model):
         if not code:
             code = "no_payment_method"
             name = "No Payment Method"
-            # return False
         payment_gateway = payment_gateway_obj.search([("code", "=", code), ("woo_instance_id", "=", instance.id)],
                                                      limit=1)
         if not payment_gateway:
             payment_gateway = payment_gateway_obj.create({"code": code, "name": name, "woo_instance_id": instance.id})
         return payment_gateway
 
-    def create_woo_log_lines(self, message, common_log_book_id=False, queue_line=False):
+    def create_woo_log_lines(self, message, common_log_book_id=False, queue_line=None):
         """
         Creates log line for the failed queue line.
         @param common_log_book_id: Record of Log book.
@@ -283,6 +290,7 @@ class SaleOrder(models.Model):
         @param message: Cause of failure.
         @return: Created log line.
         @author: Maulik Barad on Date 09-Nov-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         log_line_obj = self.env["common.log.lines.ept"]
         log_line_vals = {"message": message, "model_id": log_line_obj.get_model_id(self._name)}
@@ -302,6 +310,7 @@ class SaleOrder(models.Model):
         @param workflow_config: Record of Financial status.
         @param shipping_partner: Record of Delivery partner.
         @author: Maulik Barad on Date 03-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         payment_gateway_id = workflow_config.woo_payment_gateway_id.id if workflow_config.woo_payment_gateway_id else \
             False
@@ -318,7 +327,8 @@ class SaleOrder(models.Model):
             "auto_workflow_process_id": workflow_config.woo_auto_workflow_id.id,
             "partner_shipping_id": shipping_partner.ids[0],
             "woo_status": order_data.get("status"),
-            "client_order_ref": woo_order_number
+            "client_order_ref": woo_order_number,
+            "analytic_account_id": woo_instance.woo_analytic_account_id.id if woo_instance.woo_analytic_account_id else False,
         }
         return vals
 
@@ -329,7 +339,7 @@ class SaleOrder(models.Model):
         @param : self, order_data, woo_instance, partner, billing_partner, shipping_partner, workflow_config
         @return: woo_order_vals
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         order_date = order_data.get("date_created_gmt")
         price_list = self.find_woo_order_pricelist(order_data, woo_instance)
@@ -367,7 +377,7 @@ class SaleOrder(models.Model):
         @param : order_data, woo_instance
         @return: price_list
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         product_pricelist_obj = self.env['product.pricelist']
         currency_obj = self.env["res.currency"]
@@ -397,7 +407,7 @@ class SaleOrder(models.Model):
         @param tax: Dictionary of woo tax.
         @param tax_included: If tax is included or not in price of product in woo.
         @author: Maulik Barad on Date 20-Nov-2019.
-        Migration done by Haresh Mori @ Emipro on date 5 September 2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         account_tax_obj = self.env["account.tax"]
         title = tax["name"]
@@ -427,15 +437,25 @@ class SaleOrder(models.Model):
         @param tax_included: If tax is included or not in price of product in woo.
         @param woo_instance: Instance of Woo.
         @return: Taxes' ids.
-        Migration done by Haresh Mori @ Emipro on date 4 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         tax_obj = self.env["account.tax"]
         tax_ids = []
         for tax in taxes:
+            title = tax.get("name")
             rate = float(tax.get("rate"))
-            tax_id = tax_obj.search([("price_include", "=", tax_included),
+            if tax_included:
+                name = "%s (%s %% included)" % (title, rate)
+            else:
+                name = "%s (%s %% excluded)" % (title, rate)
+            tax_id = tax_obj.search([('name', '=ilike', name),
+                                     ("price_include", "=", tax_included),
                                      ("type_tax_use", "=", "sale"), ("amount", "=", rate),
                                      ("company_id", "=", woo_instance.company_id.id)], limit=1)
+            if not tax_id:
+                tax_id = tax_obj.search([("price_include", "=", tax_included),
+                                         ("type_tax_use", "=", "sale"), ("amount", "=", rate),
+                                         ("company_id", "=", woo_instance.company_id.id)], limit=1)
             if not tax_id:
                 tax_id = self.sudo().create_woo_tax(tax, tax_included, woo_instance)
                 _logger.info('New tax %s created in Odoo.', tax_id.name)
@@ -452,13 +472,12 @@ class SaleOrder(models.Model):
         @param : self, line_id, product, quantity, price, taxes, tax_included,woo_instance,is_shipping=False
         @return: sale order line
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         sale_line_obj = self.env["sale.order.line"]
-        rounding = False if woo_instance.tax_rounding_method == 'round_globally' else True
+        rounding = woo_instance.tax_rounding_method != 'round_globally'
         line_vals = {
             "name": product.name,
-            "qty_delivered_method" :'stock_move',
             "product_id": product.id,
             "product_uom": product.uom_id.id if product.uom_id else False,
             "order_id": self.id,
@@ -473,7 +492,9 @@ class SaleOrder(models.Model):
             tax_ids = self.apply_woo_taxes(taxes, tax_included, woo_instance)
             woo_so_line_vals.update({"tax_id": [(6, 0, tax_ids)]})
 
-        woo_so_line_vals.update({"woo_line_id": line_id, "is_delivery": is_shipping})
+        woo_analytic_tag_ids = woo_instance.woo_analytic_tag_ids.ids
+        woo_so_line_vals.update(
+            {"woo_line_id": line_id, "is_delivery": is_shipping, "analytic_tag_ids": [(6, 0, woo_analytic_tag_ids)]})
         sale_order_line = sale_line_obj.create(woo_so_line_vals)
         sale_order_line.order_id.with_context(round=rounding).write({'woo_instance_id': woo_instance.id})
         return sale_order_line
@@ -486,6 +507,7 @@ class SaleOrder(models.Model):
         @param subtotal: Total amount of order line.
         @param subtotal_tax: Total tax of order line.
         @author: Maulik Barad on Date 03-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if tax_included:
             actual_unit_price = (subtotal + subtotal_tax) / quantity
@@ -502,6 +524,7 @@ class SaleOrder(models.Model):
         @param taxes: Ids of taxes.
         @param order_line_id: Order line for which we are creating the discount line.
         @author: Maulik Barad on Date 04-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         discount_line = False
         line_discount = float(order_line.get('subtotal')) - float(order_line.get('total')) or 0
@@ -518,8 +541,7 @@ class SaleOrder(models.Model):
         return discount_line
 
     @api.model
-    def create_woo_sale_order_lines(self, queue_line, order_data, tax_included, common_log_book_id, woo_taxes,
-                                    is_process_from_queue):
+    def create_woo_sale_order_lines(self, queue_line, order_data, tax_included, common_log_book_id, woo_taxes):
         """
         Checks for products and creates sale order lines.
         @param is_process_from_queue: If processing order data from Queue.
@@ -530,14 +552,13 @@ class SaleOrder(models.Model):
         @param tax_included: If tax is included or not in price of product.
         @return: Created sale order lines.
         @author: Maulik Barad on Date 13-Nov-2019.
-        Migration done by Haresh Mori @ Emipro on date 8 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         order_lines_list = []
         woo_instance = common_log_book_id.woo_instance_id
         for order_line in order_data.get("line_items"):
             taxes = []
-            woo_product = self.find_or_create_woo_product(queue_line, order_line, common_log_book_id,
-                                                          is_process_from_queue)
+            woo_product = self.find_or_create_woo_product(queue_line, order_line, common_log_book_id)
             if not woo_product:
                 message = "Product [%s][%s] not found for Order %s" % (
                     order_line.get("sku"), order_line.get("name"), order_data.get('number'))
@@ -564,17 +585,17 @@ class SaleOrder(models.Model):
         return order_lines_list
 
     @api.model
-    def find_or_create_woo_product(self, queue_line, order_line, common_log_book_id, is_process_from_queue):
+    def find_or_create_woo_product(self, queue_line, order_line, common_log_book_id):
         """
         Searches for the product and return it.
         If it is not found and configuration is set to import product, it will collect data and
         create the product.
-        @param is_process_from_queue:
         @param common_log_book_id:
         @author: Maulik Barad on Date 12-Nov-2019.
         @param queue_line: Order data queue.
         @param order_line: Order line.
         @return: Woo product if found, otherwise blank object.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_product_template_obj = self.env["woo.product.template.ept"]
         woo_instance = common_log_book_id.woo_instance_id
@@ -591,12 +612,8 @@ class SaleOrder(models.Model):
                 return woo_product
             product_data = woo_product_template_obj.get_products_from_woo_v1_v2_v3(woo_instance, common_log_book_id,
                                                                                    order_line.get("product_id"))
-            if is_process_from_queue:
-                woo_product_template_obj.sync_products(product_data, woo_instance, common_log_book_id,
-                                                       order_queue_line=queue_line)
-            else:
-                woo_product_template_obj.sync_products(product_data, woo_instance, common_log_book_id,
-                                                       is_process_from_queue=False)
+            woo_product_template_obj.sync_products(product_data, woo_instance, common_log_book_id,
+                                                   order_queue_line=queue_line)
             woo_product = woo_product_template_obj.search_odoo_product_variant(woo_instance, order_line.get("sku"),
                                                                                woo_product_id)[0]
         return woo_product
@@ -610,7 +627,7 @@ class SaleOrder(models.Model):
         @author: Maulik Barad on Date 20-Nov-2019.
         @param woo_instance: Woo Instance.
         @return: Tax data if no issue was there, otherwise the error message.
-        Migration done by Haresh Mori @ Emipro on date 8 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         wc_api = woo_instance.woo_connect()
         params = {"_fields": "id,name,rate"}
@@ -629,7 +646,7 @@ class SaleOrder(models.Model):
         """
         Check order for full discount, when there is no payment gateway found.
         @author: Maulik Barad on Date 21-May-2020.
-        Migration done by Haresh Mori @ Emipro on date 4 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         total_discount = 0
 
@@ -649,6 +666,7 @@ class SaleOrder(models.Model):
         @param rate_percent: If the rate available in data.
         @param woo_taxes: Null at the first time and then already collected taxes for orders.
         @author: Maulik Barad on Date 04-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for order_tax in tax_line_data:
             if order_tax.get('rate_id') in woo_taxes.keys():
@@ -680,6 +698,7 @@ class SaleOrder(models.Model):
         @param is_process_from_queue: If queue is processing from the queue.
         @param queue_line: Queue line or order data.
         @author: Maulik Barad on Date 04-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if is_process_from_queue:
             order_data = ast.literal_eval(queue_line.order_data)
@@ -697,37 +716,31 @@ class SaleOrder(models.Model):
         @param : self, queue_lines, common_log_book_id
         @return: new_orders
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         new_orders = self
         woo_instance = False
         commit_count = 0
         woo_taxes = {}
         rate_percent = ""
-        is_process_from_queue = True
-        if isinstance(queue_lines, list):
-            is_process_from_queue = False
 
         for queue_line in queue_lines:
             commit_count += 1
             if commit_count == 5:
-                if is_process_from_queue:
-                    queue_line.order_data_queue_id.is_process_queue = True
+                queue_line.order_data_queue_id.is_process_queue = True
                 self._cr.commit()
                 commit_count = 0
-            if is_process_from_queue:
-                if woo_instance != queue_line.instance_id:
-                    woo_instance = queue_line.instance_id
-                    woo_taxes = {}
-            else:
-                woo_instance = common_log_book_id.woo_instance_id
+            if woo_instance != queue_line.instance_id:
+                woo_instance = queue_line.instance_id
+                woo_taxes = {}
 
-            order_data, queue_line = self.woo_prepare_order_data(is_process_from_queue, queue_line)
+            order_data = ast.literal_eval(queue_line.order_data)
+            queue_line.processed_at = fields.Datetime.now()
 
             if str(woo_instance.import_order_after_date) > order_data.get("date_created_gmt"):
                 message = "Order %s is not imported in Odoo due to configuration mismatch.\n Received order date is " \
-                          "%s. \n Please check the order after date in WooCommerce configuration." % (order_data.get(
-                    'number'),order_data.get("date_created_gmt"))
+                          "%s. \n Please check the order after date in WooCommerce configuration." \
+                          % (order_data.get('number'), order_data.get("date_created_gmt"))
                 _logger.info(message)
                 self.create_woo_log_lines(message, common_log_book_id, queue_line)
                 continue
@@ -735,8 +748,7 @@ class SaleOrder(models.Model):
             existing_order = self.search_existing_woo_order(woo_instance, order_data)
 
             if existing_order:
-                if is_process_from_queue:
-                    queue_line.state = "done"
+                queue_line.state = "done"
                 continue
 
             workflow_config = self.create_update_payment_gateway_and_workflow(order_data, woo_instance,
@@ -755,18 +767,16 @@ class SaleOrder(models.Model):
                 if isinstance(woo_taxes, bool):
                     continue
 
-            order_vals = self.prepare_woo_order_vals(order_data, woo_instance, partner, billing_partner,
-                                                     shipping_partner, workflow_config)
-            sale_order = self.create(order_vals)
-
+            order_values = self.prepare_woo_order_vals(order_data, woo_instance, partner, billing_partner,
+                                                       shipping_partner, workflow_config)
+            sale_order = self.create(order_values)
             tax_included = order_data.get("prices_include_tax")
 
             order_lines = sale_order.create_woo_sale_order_lines(queue_line, order_data, tax_included,
-                                                                 common_log_book_id, woo_taxes, is_process_from_queue)
+                                                                 common_log_book_id, woo_taxes)
             if not order_lines:
                 sale_order.unlink()
-                if is_process_from_queue:
-                    queue_line.state = "failed"
+                queue_line.state = "failed"
                 continue
 
             sale_order.woo_create_extra_lines(order_data, tax_included, woo_taxes)
@@ -777,15 +787,39 @@ class SaleOrder(models.Model):
             else:
                 sale_order.with_context(log_book_id=common_log_book_id.id).process_orders_and_invoices_ept()
 
-            service_product = [product for product in sale_order.order_line.product_id if product.type == 'service']
+            service_product = [product for product in sale_order.order_line.product_id if
+                               product.detailed_type == 'service']
             sale_order.is_service_woo_order = bool(service_product)
+
+            # WooCommerce Meta Mapping for import Unshipped/Shipped Orders
+            woo_operation = 'import_completed_orders' if sale_order.woo_status == 'completed' else 'import_unshipped_orders'
+            meta_mapping_ids = woo_instance.meta_mapping_ids.filtered(
+                lambda meta: meta.woo_operation == woo_operation)
+            operation_type = "import"
+            if meta_mapping_ids and meta_mapping_ids.filtered(
+                    lambda meta: meta.model_id.model == self._name):
+                record = sale_order
+                woo_instance.with_context(woo_operation=woo_operation).meta_field_mapping(order_data, operation_type,
+                                                                                          record)
+
+            if meta_mapping_ids and meta_mapping_ids.filtered(
+                    lambda meta: meta.model_id.model == sale_order.partner_id._name):
+                record = partner
+                woo_instance.with_context(woo_operation=woo_operation).meta_field_mapping(order_data, operation_type,
+                                                                                          record)
+
+            if meta_mapping_ids and meta_mapping_ids.filtered(
+                    lambda meta: meta.model_id.model == sale_order.picking_ids._name):
+                record = sale_order.picking_ids
+                woo_instance.with_context(woo_operation=woo_operation).meta_field_mapping(order_data, operation_type,
+                                                                                          record)
+
             new_orders += sale_order
-            if is_process_from_queue:
-                queue_line.write({"sale_order_id": sale_order.id, "state": "done"})
-            message = "Sale order: %s and Woo order number: %s is created.", sale_order.name, order_data.get('number')
+            queue_line.write({"sale_order_id": sale_order.id, "state": "done"})
+            message = "Sale order: %s and Woo order number: %s is created." % (sale_order.name,
+                                                                               order_data.get('number'))
             _logger.info(message)
-        if is_process_from_queue:
-            queue_lines.order_data_queue_id.is_process_queue = False
+        queue_lines.order_data_queue_id.is_process_queue = False
         return new_orders
 
     def search_existing_woo_order(self, woo_instance, order_data):
@@ -794,14 +828,14 @@ class SaleOrder(models.Model):
         @param : self,woo_instance,order_data
         @return: existing_order
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         existing_order = self.search([("woo_instance_id", "=", woo_instance.id),
                                       ("woo_order_id", "=", order_data.get("id")),
-                                      ("woo_order_number", "=", order_data.get("number"))]).ids
+                                      ("woo_order_number", "=", order_data.get("number"))], limit=1)
         if not existing_order:
             existing_order = self.search([("woo_instance_id", '=', woo_instance.id),
-                                          ("client_order_ref", "=", order_data.get("number"))]).ids
+                                          ("client_order_ref", "=", order_data.get("number"))], limit=1)
         return existing_order
 
     def woo_create_extra_lines(self, order_data, tax_included, woo_taxes):
@@ -811,6 +845,7 @@ class SaleOrder(models.Model):
         @param tax_included: True If tax is included.
         @param woo_taxes: List of taxes.
         @author: Maulik Barad on Date 04-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         self.create_woo_shipping_line(order_data, tax_included, woo_taxes)
         self.create_woo_fee_line(order_data, tax_included, woo_taxes)
@@ -822,11 +857,12 @@ class SaleOrder(models.Model):
         This method defines the financial status from transaction, date_paid, payment method and status of the order.
         @param order_data: Data of order.
         @author: Maulik Barad on Date 04-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if order_data.get("transaction_id"):
             financial_status = "paid"
         elif order_data.get("date_paid") and order_data.get("payment_method") != "cod" and order_data.get(
-            "status") == "processing":
+                "status") == "processing":
             financial_status = "paid"
         else:
             financial_status = "not_paid"
@@ -838,7 +874,7 @@ class SaleOrder(models.Model):
         @param : self,order_data,woo_instance,common_log_book_id,queue_line
         @return: payment_gateway, workflow_config
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         sale_auto_workflow_obj = self.env["woo.sale.auto.workflow.configuration"]
         woo_payment_gateway_obj = self.env['woo.payment.gateway']
@@ -861,7 +897,7 @@ class SaleOrder(models.Model):
                                                             limit=1)
         else:
             message = """- System could not find the payment gateway response from WooCommerce store.
-            - The response received from Woocommerce store was Empty. Woo Order number: %s""", order_data.get("number")
+            - The response received from Woocommerce store was Empty. Woo Order number: %s""" % order_data.get("number")
             self.create_woo_log_lines(message, common_log_book_id, queue_line)
             return False
 
@@ -893,7 +929,7 @@ class SaleOrder(models.Model):
         @param : self, order_data, woo_instance, queue_line,common_log_book_id,is_process_from_queue
         @return: partner, shipping_partner
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         partner_obj = self.env['res.partner']
         woo_partner_obj = self.env['woo.res.partner.ept']
@@ -927,6 +963,7 @@ class SaleOrder(models.Model):
         @param delivery_method: Method name from WooCommerce.
         @param shipping_line: Data of shipping line.
         @author: Maulik Barad on Date 04-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         delivery_carrier_obj = self.env["delivery.carrier"]
         carrier = delivery_carrier_obj.search([("woo_code", "=", delivery_method)], limit=1)
@@ -946,7 +983,7 @@ class SaleOrder(models.Model):
         This method used to create a shipping line base on the shipping response in the order.
         @param : self, order_data, sale_order, tax_included, woo_taxes
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         shipping_product_id = self.woo_instance_id.shipping_product_id
 
@@ -959,10 +996,7 @@ class SaleOrder(models.Model):
 
                 taxes = []
                 if self.woo_instance_id.apply_tax == "create_woo_tax":
-                    for tax in shipping_line.get("taxes"):
-                        if not tax.get('total'):
-                            continue
-                        taxes.append(woo_taxes.get(tax['id']))
+                    taxes = [woo_taxes.get(tax["id"]) for tax in shipping_line.get("taxes") if tax.get("total")]
 
                 total_shipping = float(shipping_line.get("total", 0.0))
                 if tax_included:
@@ -977,7 +1011,7 @@ class SaleOrder(models.Model):
         This method used to create a fee line base on the fee response in the order.
         @param : self, order_data, tax_included, woo_taxes, sale_order
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         for fee_line in order_data.get("fee_lines"):
             if tax_included:
@@ -987,10 +1021,7 @@ class SaleOrder(models.Model):
             if total_fee:
                 taxes = []
                 if self.woo_instance_id.apply_tax == "create_woo_tax":
-                    for tax in fee_line.get("taxes"):
-                        if not tax.get('total'):
-                            continue
-                        taxes.append(woo_taxes.get(tax["id"]))
+                    taxes = [woo_taxes.get(tax["id"]) for tax in fee_line.get("taxes") if tax.get("total")]
 
                 self.create_woo_order_line(fee_line.get("id"), self.woo_instance_id.fee_product_id, 1, total_fee, taxes,
                                            tax_included, self.woo_instance_id)
@@ -1002,7 +1033,7 @@ class SaleOrder(models.Model):
         This method is used to set the coupon in the order, it will set coupon if the coupon is already synced in odoo.
         @param : self, order_data
         @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 4 September 2020 .
-        Task_id: 165893
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         woo_coupon_obj = self.env["woo.coupons.ept"]
         woo_coupons = []
@@ -1020,13 +1051,45 @@ class SaleOrder(models.Model):
         self.woo_coupon_ids = [(6, 0, woo_coupons)]
         return True
 
+    def import_cancel_order_cron_action(self, instance):
+        """This method is used to import cancel orders from the auto-import cron job.
+        """
+        instance_obj = self.env['woo.instance.ept']
+        if isinstance(instance, int):
+            instance = instance_obj.browse(instance)
+        if not instance.active:
+            return False
+        from_date = instance.last_cancel_order_import_date
+        to_date = datetime.now()
+        if not from_date:
+            from_date = to_date - timedelta(3)
+        self.import_woo_cancel_order(instance, from_date, to_date)
+        return True
+
+    def import_woo_cancel_order(self, instance, from_date, to_date):
+        """ This method is used if Woo orders imported in odoo and after Woo store in some orders are canceled
+            then this method cancel imported orders and created a log note.
+            @param : instance,from_date,to_date
+            @return: True
+            @author: Meera Sidapara @Emipro Technologies Pvt. Ltd on date 02 April 2022.
+            Task_id: 186892
+        """
+        order_ids = self.import_woo_orders(instance, from_date, to_date, order_type="cancelled")
+        for order_data in order_ids:
+            if order_data.get('status') == "cancelled":
+                sale_order = self.search_existing_woo_order(instance, order_data)
+                if sale_order and sale_order.state != 'cancel':
+                    sale_order.cancel_woo_order()
+                    sale_order.write({'canceled_in_woo': True})
+        return True
+
     @api.model
     def update_woo_order_status(self, woo_instance):
         """
         Updates order's status in WooCommerce.
         @author: Maulik Barad on Date 14-Nov-2019.
         @param woo_instance: Woo Instance.
-        Migration done by Haresh Mori @ Emipro on date 9 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         common_log_book_obj = self.env["common.log.book.ept"]
         instance_obj = self.env["woo.instance.ept"]
@@ -1034,25 +1097,43 @@ class SaleOrder(models.Model):
         woo_order_ids = []
         if isinstance(woo_instance, int):
             woo_instance = instance_obj.browse(woo_instance)
+        if not woo_instance.active:
+            return False
         wc_api = woo_instance.woo_connect()
         sales_orders = self.search([("warehouse_id", "=", woo_instance.woo_warehouse_id.id),
                                     ("woo_order_id", "!=", False), ("woo_instance_id", "=", woo_instance.id),
-                                    ("state", "=", "sale"), ("woo_status", "!=", 'completed')])
+                                    ("state", "in", ["sale", "done"]), ("woo_status", "!=", 'completed')])
 
         for sale_order in sales_orders:
             if sale_order.updated_in_woo:
                 continue
 
-            pickings = sale_order.picking_ids.filtered(lambda x: x.location_dest_id.usage == "customer" and x.state
-                                                                 != "cancel" and not x.updated_in_woo)
+            pickings = sale_order.picking_ids.filtered(lambda x:
+                                                       x.location_dest_id.usage == "customer" and x.state
+                                                       != "cancel" and not x.updated_in_woo)
             _logger.info("Start Order update status for Order : %s", sale_order.name)
             if all(state == 'done' for state in pickings.mapped("state")):
                 woo_order_ids.append({"id": int(sale_order.woo_order_id), "status": "completed", })
             elif not pickings and sale_order.state == "sale":
+                # When all products are of service type.
                 woo_order_ids.append({"id": int(sale_order.woo_order_id), "status": "completed"})
-                """When all products are service type."""
             else:
                 continue
+            # WooCommerce Meta Mapping for Update Order shipping status
+            woo_operation = 'is_update_order_status'
+            meta_mapping_ids = woo_instance.meta_mapping_ids.filtered(
+                lambda meta: meta.woo_operation == woo_operation)
+            if meta_mapping_ids and meta_mapping_ids.filtered(
+                    lambda meta: meta.model_id.model == self._name):
+                record = sale_order
+                woo_instance.with_context(woo_operation=woo_operation).meta_field_mapping(woo_order_ids, "export",
+                                                                                          record)
+
+            if meta_mapping_ids and meta_mapping_ids.filtered(
+                    lambda meta: meta.model_id.model == pickings._name):
+                record = pickings.filtered(lambda picking: picking.state == 'done')
+                woo_instance.with_context(woo_operation=woo_operation).meta_field_mapping(woo_order_ids, "export",
+                                                                                          record)
 
         for woo_orders in split_every(100, woo_order_ids):
             log_line_id = self.update_order_status_in_batch(woo_orders, wc_api, woo_instance)
@@ -1064,16 +1145,20 @@ class SaleOrder(models.Model):
             self._cr.commit()
 
         if log_lines:
-            common_log_book_obj.woo_create_log_book('export', woo_instance, log_lines)
+            log_book = common_log_book_obj.woo_create_log_book('export', woo_instance, log_lines)
+            if log_book and woo_instance.is_create_schedule_activity:
+                message = self.prepare_schedule_activity_message(log_book)
+                self.woo_create_schedule_activity_against_logbook(log_book, message)
         return True
 
     def update_order_status_in_batch(self, woo_orders, wc_api, woo_instance):
-        """ This method is used to update orders in the batch from Odoo to the Woocommerce store.
-            :param woo_orders: list of dictionary with woo order id and status.
-            :param wc_api: Object of Woocommerce rest API.
-            :param woo_instance: Browsable record of instance.
-            @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 26 November 2020 .
-            Task_id: 168323
+        """
+        This method is used to update orders in the batch from Odoo to the Woocommerce store.
+        :param woo_orders: list of dictionary with woo order id and status.
+        :param wc_api: Object of Woocommerce rest API.
+        :param woo_instance: Browsable record of instance.
+        @author: Haresh Mori @Emipro Technologies Pvt. Ltd on date 26 November 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         try:
             response = wc_api.post('orders/batch', {'update': list(woo_orders)})
@@ -1090,8 +1175,8 @@ class SaleOrder(models.Model):
         log_lines = []
         for order in woo_orders:
             if order.get('id') not in update_order_list:
-                _logger.info("Could not update order status of Woo order id %s", order.get('id'))
                 message = 'Could not update order status of Woo order id %s' % order.get('id')
+                _logger.info(message)
                 log_line = self.create_woo_log_lines(message)
                 log_lines.append(log_line.id)
                 continue
@@ -1111,8 +1196,7 @@ class SaleOrder(models.Model):
         This method used to open a wizard to cancel order in WooCommerce.
         @return: action
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 23-11-2019.
-        :Task id: 156886
-        Migration done by Haresh Mori @ Emipro on date 30 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         view = self.env.ref('woo_commerce_ept.view_woo_cancel_order_wizard')
         context = dict(self._context)
@@ -1138,33 +1222,25 @@ class SaleOrder(models.Model):
         @author: Maulik Barad on Date 30-Dec-2019.
         @param order_data: Dictionary of order's data.
         @param instance: Instance of Woo.
-        Migration done by Haresh Mori @ Emipro on date 23 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
-        sale_order_obj = self.env["sale.order"]
-        common_log_book_obj = self.env['common.log.book.ept']
-        log_line_obj = self.env["common.log.lines.ept"]
-        woo_order_data_queue_obj = self.env["woo.order.data.queue.ept"]
+        order_queue = woo_order_data_queue_obj = self.env["woo.order.data.queue.ept"]
         order_number = order_data.get('number')
+        order_status = order_data.get("status")
         if update_order:
-            order_queue = woo_order_data_queue_obj.search([('instance_id', '=', instance.id), ('state', '=', 'draft'),
-                                                           ('created_by', '=', 'webhook')], limit=1)
+            order_queue = woo_order_data_queue_obj.search([
+                ('instance_id', '=', instance.id), ('state', '=', 'draft'), ('created_by', '=', 'webhook'),
+                ("queue_type", "=", "shipped" if order_status else "unshipped")], limit=1)
             if order_queue:
                 order_queue.create_woo_data_queue_lines([order_data])
-                _logger.info("Added order %s in existing order queue %s", order_number,
-                             order_queue.display_name)
-                if len(order_queue.order_data_queue_line_ids) >= 50:
-                    order_queue.order_data_queue_line_ids.process_order_queue_line()
-            elif not order_queue:
-                order_data_queue = self.create_woo_order_data_queue(instance, [order_data], "webhook")
-                _logger.info("Created order data queue : %s  update order webhook", order_data_queue.display_name)
-        else:
-            log_book_id = common_log_book_obj.create({"type": "import", "module": "woocommerce_ept",
-                                                      "model_id": log_line_obj.get_model_id(self._name),
-                                                      "woo_instance_id": instance.id, "active": True})
-            _logger.info("Creating Order from Webhook. Order number: %s ", order_number)
-            sale_order_obj.create_woo_orders([order_data], log_book_id)
-            _logger.info("Order %s is Created.", order_number)
+                _logger.info("Added order %s in existing order queue %s.", order_number, order_queue.display_name)
 
+        if not order_queue:
+            order_queue = self.create_woo_order_data_queue(instance, [order_data], order_status, "webhook")
+            _logger.info("Created Order Queue : %s.", order_queue.display_name)
+
+        if len(order_queue.order_data_queue_line_ids) >= 50 or not update_order:
+            order_queue.order_data_queue_line_ids.process_order_queue_line(update_order)
         return True
 
     def woo_change_shipping_partner(self, order_data, woo_instance, queue_line, common_log_book_id):
@@ -1173,6 +1249,7 @@ class SaleOrder(models.Model):
         @param order_data: Data of the order.
         @param woo_instance: Record of the instance.
         @author: Maulik Barad on Date 04-Nov-2020.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         shipping_partner = self.partner_shipping_id
         updated_shipping_partner = self.woo_order_billing_shipping_partner(order_data, woo_instance, queue_line,
@@ -1193,6 +1270,7 @@ class SaleOrder(models.Model):
         @param queue_lines: Order Data Queue Line.
         @param log_book: Common Log Book.
         @return: Updated Sale order.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         orders = []
         woo_instance = log_book.woo_instance_id
@@ -1203,6 +1281,9 @@ class SaleOrder(models.Model):
             woo_status = order_data.get("status")
             order = self.search([("woo_instance_id", "=", woo_instance.id),
                                  ("woo_order_id", "=", order_data.get("id"))])
+
+            if not order:
+                order = self.create_woo_orders(queue_line, log_book)
 
             if woo_status != "cancelled":
                 order.woo_change_shipping_partner(order_data, woo_instance, queue_line, False)
@@ -1219,17 +1300,18 @@ class SaleOrder(models.Model):
                     [%s], system could not find the related order invoice. """ % order_data.get('number')
                 elif refunded[0] == 3:
                     message = """- Refund can only be generated if it's related order invoice is in 'Post' status.
-                    - For order [%s], system found related invoice but it is not in 'Post' status.""", order_data.get(
+                    - For order [%s], system found related invoice but it is not in 'Post' status.""" % order_data.get(
                         'number')
                 elif refunded[0] == 2:
                     message = """- Partial refund is received from Woocommerce for order [%s].
                     - System do not process partial refunds.
-                    - Either create partial refund manually in Odoo or do full refund in Woocommerce.""", \
+                    - Either create partial refund manually in Odoo or do full refund in Woocommerce.""" % \
                               order_data.get('number')
             elif woo_status == "completed":
                 completed = order.complete_woo_order()
                 if not completed:
-                    message = "There is not enough stock to complete Delivery for order [%s]", order_data.get('number')
+                    message = """There is not enough stock to complete Delivery for order [%s]""" % order_data.get(
+                        'number')
             # elif woo_status == "processing":
             #     if order.auto_workflow_process_id.register_payment:
             #         invoices = order.invoice_ids.filtered(lambda invoice: invoice.state == 'posted' and
@@ -1252,8 +1334,12 @@ class SaleOrder(models.Model):
         """
         Cancelled the sale order when it is cancelled in WooCommerce.
         @author: Maulik Barad on Date 31-Dec-2019.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if "done" in self.picking_ids.mapped("state"):
+            for picking_id in self.picking_ids:
+                picking_id.message_post(
+                    body=_("Order %s has been canceled in the WooCommerce store.", self.woo_order_number))
             return False
         self.action_cancel()
         return True
@@ -1264,7 +1350,7 @@ class SaleOrder(models.Model):
         Make the picking done, when order will be completed in WooCommerce.
         This method is used for Update order webhook.
         @author: Maulik Barad on Date 31-Dec-2019.
-        Migration done by Haresh Mori @ Emipro on date 24 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if not self.state == "sale":
             self.action_confirm()
@@ -1276,7 +1362,7 @@ class SaleOrder(models.Model):
         It will make the pickings done.
         This method is used for Update order webhook.
         @author: Maulik Barad on Date 01-Jan-2020.
-        Migration done by Haresh Mori @ Emipro on date 24 September 2020 .
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         skip_sms = {"skip_sms": True}
         for picking in pickings.filtered(lambda x: x.state != "done"):
@@ -1318,6 +1404,7 @@ class SaleOrder(models.Model):
                 [2] : When partial refund was made in Woo.
                 [3] : When invoice is not posted.
                 [4] : When no invoice is created.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         if not self.invoice_ids:
             return [4]
@@ -1334,10 +1421,12 @@ class SaleOrder(models.Model):
             if not invoice.state == "posted":
                 return [3]
         if self.amount_total == total_refund:
+            journal_id = invoices.mapped('journal_id')
             context = {"active_model": "account.move", "active_ids": invoices.ids}
             move_reversal = self.env["account.move.reversal"].with_context(context).create(
                 {"refund_method": "cancel",
-                 "reason": "Refunded from Woo" if len(refunds_data) > 1 else refunds_data[0].get("reason")})
+                 "reason": "Refunded from Woo" if len(refunds_data) > 1 else refunds_data[0].get("reason"),
+                 "journal_id": journal_id.id})
             move_reversal.reverse_moves()
             move_reversal.new_move_ids.message_post(
                 body=_("Credit note generated by Webhook as Order refunded in Woocommerce."))
@@ -1349,18 +1438,18 @@ class SaleOrder(models.Model):
         This method is used to set instance id to invoice. for identified invoice.
         :return: invoice
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 23-11-2019.
-        :Task id: 156886
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         invoice_vals = super(SaleOrder, self)._prepare_invoice()
         if self.woo_instance_id:
             invoice_vals.update({'woo_instance_id': self.woo_instance_id.id})
         return invoice_vals
 
-    def _get_invoiceable_lines(self,final=False):
+    def _get_invoiceable_lines(self, final=False):
         if self.woo_instance_id:
-            rounding = False if self.woo_instance_id.tax_rounding_method == 'round_globally' else True
+            rounding = self.woo_instance_id.tax_rounding_method != 'round_globally'
             self.env.context = dict(self._context)
-            self.env.context.update({'round' : rounding})
+            self.env.context.update({'round': rounding})
         invoiceable_lines = super(SaleOrder, self)._get_invoiceable_lines(final)
         return invoiceable_lines
 
@@ -1372,10 +1461,11 @@ class SaleOrder(models.Model):
         :return: It will return boolean.
         Migration done by Haresh.
         This method used to create and register payment base on the Woo order status.
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         self.ensure_one()
         if self.woo_instance_id and self.woo_status == 'pending':
-            return True
+            return False
         if work_flow_process_record.create_invoice:
             fiscalyear_lock_date = self.company_id._get_user_fiscal_lock_date()
             if self.date_order.date() <= fiscalyear_lock_date:
@@ -1399,6 +1489,61 @@ class SaleOrder(models.Model):
             if work_flow_process_record.register_payment:
                 self.paid_invoice_ept(invoices)
         return True
+
+    def prepare_schedule_activity_message(self, log_book):
+        """
+        This method used to prepare schedule activity message based on log line.
+        @param : self,log_book
+        @return: message
+        @author: Meera Sidapara @Emipro Technologies Pvt. Ltd on date 13 December 2021.
+        Task_id: 179270
+        """
+        message = []
+        count = 0
+        for log_line in log_book.log_lines:
+            count += 1
+            if count <= 5:
+                message.append('<' + 'li' + '>' + log_line.message + '<' + '/' + 'li' + '>')
+        if count >= 5:
+            message.append(
+                '<' + 'p' + '>' + 'Please refer the logbook' + '  ' + log_book.name + '  ' + 'check it in more detail' + '<' + '/' + 'p' + '>')
+        note = "\n".join(message)
+        return note
+
+    def woo_create_schedule_activity_against_logbook(self, log_book_id, note):
+        """
+        This method used to create schedule activity against log book.
+        @param : self,log_book_id, mismatch_record, note
+        @return: True
+        @author: Meera Sidapara @Emipro Technologies Pvt. Ltd on date 13 December 2021.
+        Task_id: 179270
+        """
+        mail_activity_obj = self.env['mail.activity']
+        ir_model_obj = self.env['ir.model']
+        model_id = ir_model_obj.search([('model', '=', 'common.log.book.ept')])
+        activity_type_id = log_book_id and log_book_id.woo_instance_id.activity_type_id.id
+        date_deadline = datetime.strftime(
+            datetime.now() + timedelta(days=int(log_book_id.woo_instance_id.date_deadline)), "%Y-%m-%d")
+        if len(log_book_id.log_lines) > 0:
+            for user_id in log_book_id.woo_instance_id.user_ids:
+                mail_activity = mail_activity_obj.search([('res_model_id', '=', model_id.id),
+                                                          ('user_id', '=', user_id.id),
+                                                          ('res_name', '=', log_book_id.name),
+                                                          ('activity_type_id', '=', activity_type_id)])
+                note_2 = "<p>" + note + '</p>'
+                duplicate_activity = mail_activity.filtered(lambda x: x.note == note_2)
+                if not mail_activity or not duplicate_activity:
+                    vals = {'activity_type_id': activity_type_id, 'note': note, 'summary': log_book_id.name,
+                            'res_id': log_book_id.id, 'user_id': user_id.id or self._uid,
+                            'res_model_id': model_id.id, 'date_deadline': date_deadline}
+                    try:
+                        mail_activity_obj.create(vals)
+                    except Exception as error:
+                        _logger.info("Unable to create schedule activity, Please give proper "
+                                     "access right of this user :%s  ", user_id.name)
+                        _logger.info(error)
+        return True
+
 
 class SaleOrderLine(models.Model):
     _inherit = "sale.order.line"

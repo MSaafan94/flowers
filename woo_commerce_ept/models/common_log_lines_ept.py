@@ -22,6 +22,7 @@ class CommonLogLinesEpt(models.Model):
         @param common_log_id:
         @return: return the new log line
         @author: Dipak Gogiya @Emipro Technologies Pvt.Ltd
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         vals = {"message": message,
                 "model_id": model_id,
@@ -39,6 +40,7 @@ class CommonLogLinesEpt(models.Model):
         :param model_id: It contain the id of the model and Its type is Integer
         :param product_template_id: It contain the browsable object of Product template
         @author: Dipak Gogiya @Emipro Technologies Pvt.Ltd
+        Migrated by Maulik Barad on Date 07-Oct-2021.
         """
         vals = {"message": message,
                 "model_id": model_id,

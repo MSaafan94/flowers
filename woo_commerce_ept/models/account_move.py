@@ -21,9 +21,7 @@ class AccountMove(models.Model):
         Note: - It's only generate refund it'll not make any auto transaction according to woo payment method.
               - @param:api_refund: responsible for auto transaction as per woo payment method.
         @author: Pragnadeep Pitroda @Emipro Technologies Pvt. Ltd on date 23-11-2019.
-        Task id: 156886
-        Migration done by Haresh Mori @ Emipro on date 30 September 2020 .
-        Task Id: 167148
+        Migrated Maulik Barad on Date 07-Oct-2021.
         """
         for refund in self:
             if not refund.woo_instance_id:
@@ -45,8 +43,7 @@ class AccountMove(models.Model):
                 if not isinstance(response, requests.models.Response):
                     raise UserError(_("Refund \n Response is not in proper format :: %s") % response)
 
-                if response.status_code in [200, 201]:
-                    refund.write({'is_refund_in_woo': True})
-                else:
+                if response.status_code not in [200, 201]:
                     raise UserError(_("Refund \n%s") % response.content)
+                refund.write({'is_refund_in_woo': True})
         return True

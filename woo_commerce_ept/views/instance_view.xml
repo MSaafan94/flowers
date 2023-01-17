@@ -278,7 +278,7 @@
                                 </field>
                             </group>
                         </page>
-                        <page string="Woo Site Info" groups="woo_commerce_ept.group_woo_manager_ept">
+                        <page string="Woo Site Info" groups="woo_commerce_ept.group_woo_manager_ept" name="site_info">
                             <group>
                                 <group>
                                     <field name="woo_consumer_key" attrs="{'readonly':[('active','=',True)]}"
@@ -296,7 +296,7 @@
                             </group>
                         </page>
                         <page string="Administrator Info" groups="woo_commerce_ept.group_woo_manager_ept"
-                              attrs="{'invisible':[('is_export_update_images','=',False)]}">
+                              name="admin_info" attrs="{'invisible':[('is_export_update_images','=',False)]}">
                             <group>
                                 <group>
                                     <field name="woo_admin_username"
@@ -306,6 +306,70 @@
                                     <field name="woo_admin_password" password="1"
                                            attrs="{'required':[('is_export_update_images','=',True)],'readonly':[('active','=',True)]}"/>
                                 </group>
+                            </group>
+                        </page>
+                        <page string="Default Products" groups="woo_commerce_ept.group_woo_manager_ept"
+                              name="default_products">
+                            <group>
+                                <group>
+                                    <field name="shipping_product_id" domain="[('detailed_type','=','service')]"
+                                           required="1" string="Shipping Product"/>
+                                    <field name="fee_product_id" domain="[('detailed_type','=','service')]"
+                                           required="1" string="Fee Product"/>
+                                </group>
+                                <group>
+                                    <field name="discount_product_id" domain="[('detailed_type','=','service')]"
+                                           required="1" string="Discount Product"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Analytic Account &amp; Tags" name="analytic_account_tags"
+                              groups="analytic.group_analytic_accounting,analytic.group_analytic_tags">
+                            <group name="group_analytic_account_tags">
+                                <group groups="analytic.group_analytic_accounting">
+                                    <field name="woo_analytic_account_id" readonly="1"/>
+                                </group>
+                                <group groups="analytic.group_analytic_tags">
+                                    <field name="woo_analytic_tag_ids" widget="many2many_tags" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page name="meta_mapping" string="Meta Mapping">
+                            <group class="alert alert-warning" role="alert">
+                                <div style="padding:5px;">
+                                    <h5 style="color:#7d5a29;">
+                                        <b>
+                                            <u>Note:</u>
+                                        </b>
+                                    </h5>
+                                    <b>
+                                        <ol>
+                                            <li>
+                                                If you configured meta mapping and set field based on meta key,it will
+                                                override the field value if field in value already exist.
+                                            </li>
+                                            <li>
+                                                If you configured meta mapping, it will sync metadata only newly created
+                                                record.
+                                            </li>
+                                        </ol>
+                                    </b>
+                                </div>
+                            </group>
+                            <group>
+                                <field name="meta_mapping_ids" nolabel="1" mode="tree">
+                                    <tree editable="bottom">
+                                        <field name="woo_meta_key" required="1"/>
+                                        <field name="woo_operation" required="1"/>
+                                        <field name="model_id"
+                                               options="{'no_open':True,'no_create':True,'no_create_edit': True}"
+                                               required="1"/>
+                                        <field name="field_id"
+                                               domain="[('model_id','=',model_id),('ttype', 'not in',['many2one','many2many','one2many','binary'])]"
+                                               options="{'no_open':True,'no_create':True,'no_create_edit': True}"
+                                               required="1"/>
+                                    </tree>
+                                </field>
                             </group>
                         </page>
                     </notebook>

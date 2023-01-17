@@ -68,7 +68,7 @@
 
     <menuitem id="menu_item_parent_sale_report_ept"
               name="Reporting" parent="woo_commerce_main_menu"
-              sequence="5"/>
+              sequence="6"/>
 
     <menuitem action="woo_action_report" id="sale_report_menu_ept" name="Sales"
               parent="menu_item_parent_sale_report_ept" sequence="1"/>
