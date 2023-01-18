@@ -337,11 +337,7 @@
 							string="Operation"
 							attrs ="{'invisible':[('state','!=','validate')]}"
 						>
-							<field name="use_core_feature" invisible="1" readonly="False"/>
-							<group
-								name ="operation_button_group"
-								attrs="{'invisible':[('use_core_feature','=',False)]}"
-							>
+							<group name ="operation_button_group">
 								<button
 									aria-label="Import"
 									title     ="Import"
@@ -892,7 +888,7 @@
 								</group>
 							</group>
 						</page>
-						<page name="crons" string = "Crons" attrs="{'invisible':[('use_core_feature','=',False)]}">
+						<page name="crons" string="Crons">
 							<group name="cron_group" col="4">
 								<field name="import_category_cron"/>
 								<field name="import_partner_cron"/>

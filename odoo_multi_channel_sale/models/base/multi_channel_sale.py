@@ -103,8 +103,6 @@ class MultiChannelSale(models.Model):
 		if 'install_mode' in self._context or 'create_order_states' in self._context:
 			res._on_change_channel()
 		channels = self.get_core_feature_compatible_channels()
-		if res.channel in channels:
-			res.use_core_feature = True
 		return res
 
 	url     = fields.Char("URL")
@@ -227,11 +225,10 @@ class MultiChannelSale(models.Model):
 			instance.blog_url = url_info.get('blog','https://webkul.com/blog/odoo-multi-channel-sale/')
 			instance.store_url = url_info.get('store','https://store.webkul.com/Odoo-Multi-Channel-Sale.html')
 
-	use_core_feature = fields.Boolean(readonly=True)
 	channel = fields.Selection(selection='get_channel', required=True, inverse=set_info_urls)
 	name = fields.Char('Name', required=True)
 	state = fields.Selection(STATE, default='draft')
-	color = fields.Char(default='#000')
+	color = fields.Char(default='#000000')
 	image = fields.Image(max_width=256, max_height=256)
 	blog_url = fields.Char()
 	store_url = fields.Char()

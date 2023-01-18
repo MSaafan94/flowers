@@ -66,13 +66,3 @@ class MultiChannelSaleConfig(models.TransientModel):
 			}
 		)
 		return res
-
-
-class MultiChannelSaleConfigOld(models.TransientModel):
-	_name = 'multi.channel.sale.config'
-	"""
-	This class will be removed with 15.0 release.
-	keeping it here to not cause any breakage while delivering 
-	an update to customers who already using the older version.
-	"""
-	pass

@@ -202,3 +202,5 @@ class PartnerFeed(models.Model):
 			)
 		message = self.get_feed_result(feed_type='Partner')
 		return self.env['multi.channel.sale'].display_message(message)
+
+	

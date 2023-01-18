@@ -97,6 +97,7 @@
 				</tree>
 			</field>
 		</record>
+
 		<record id="channel_attribute_mapping_pivot" model="ir.ui.view">
 			<field name="name">channel.attribute.mappings.pivot</field>
 			<field name="model">channel.attribute.mappings</field>

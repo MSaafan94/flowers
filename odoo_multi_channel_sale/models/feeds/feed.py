@@ -255,7 +255,7 @@ class WkFeed(models.Model):
 	def get_product_id(self, store_product_id, line_variant_ids, channel_id, default_code=None, barcode=None):
 		message = ''
 
-		# Need to check significance of domain
+		# Need to check significance of domain 
 
 		# domain = []
 		# if default_code:
@@ -532,3 +532,4 @@ class WkFeed(models.Model):
 			return self.with_context(order_mappings=mappings)
 		else:
 			raise Exception('Wrong type for mappings to be contextualized.')
+

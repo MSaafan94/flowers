@@ -277,7 +277,10 @@ class ProductFeed(models.Model):
 	@api.model
 	def wk_change_product_qty(self,product_id,qty_available,location_id):
 		if qty_available and product_id.type=='product':
-			self.env['stock.quant'].with_context(inventory_mode=True).create(
+			self.env['stock.quant'].with_context(
+				inventory_mode=True,
+				inventory_report_mode=True
+			).create(
 				{
 					'product_id': product_id.id,
 					'location_id': location_id.id,
